@@ -11,13 +11,17 @@ endpoint, except a few client-side composites (`init`, `status`, `onboard`).
 ## Install
 
 ```bash
-# Recommended — isolated install
-pipx install aimalabs-cli
-# or run without installing
-uvx aimalabs-cli --help
+# Recommended — isolated install onto your PATH (provides the `aima` command)
+uv tool install aimalabs-cli      # or: pipx install aimalabs-cli
+# Run once without installing (ephemeral — does NOT add `aima` to PATH)
+uvx --from aimalabs-cli aima --help
 # or plain pip
 pip install aimalabs-cli
 ```
+
+The package is `aimalabs-cli`; the command it installs is `aima`. Because the
+two names differ, ephemeral runners need `--from`: use
+`uvx --from aimalabs-cli aima`, not `uvx aimalabs-cli`.
 
 Homebrew:
 
