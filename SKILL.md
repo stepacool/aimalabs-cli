@@ -15,6 +15,38 @@ client-side composites `init`, `status`, and `onboard`.
 
 The PyPI package is `aimalabs-cli`; the installed command is `aima`.
 
+## Install
+
+If `aima` isn't on the PATH (`command -v aima` is empty), install it first.
+
+**Homebrew** (macOS/Linux):
+
+```bash
+brew install stepacool/tap/aima
+```
+
+**uv / pipx** — isolated install onto the PATH (provides the `aima` command):
+
+```bash
+uv tool install aimalabs-cli      # or: pipx install aimalabs-cli
+```
+
+**pip:**
+
+```bash
+pip install aimalabs-cli
+```
+
+**Run once without installing** (ephemeral — does *not* add `aima` to the PATH).
+Because the package and command names differ, `uvx` needs `--from`:
+
+```bash
+uvx --from aimalabs-cli aima --help    # not: uvx aimalabs-cli
+```
+
+Upgrade/remove later: `brew upgrade aima` / `uv tool upgrade aimalabs-cli` /
+`pipx upgrade aimalabs-cli` (and the matching `uninstall`).
+
 ## Golden rules
 
 1. **Drive the real `aima` binary** — never reproduce calls with `curl`/`httpx`.
