@@ -4,6 +4,15 @@ All notable changes to `aimalabs-cli` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] — 2026-06-03
+
+### Added
+- `aima agents list|get|create|update` — manage reusable agents. `create`/`update`
+  accept `--name`, `--company-name`, `--language`, `--system-prompt` (`@file`),
+  and `--voice-id`.
+- `aima campaigns update <id>` — `--title`, `--agent-id` (reassign agent),
+  `--extra-context` (`@file`), and `--active`/`--inactive`.
+
 ## [0.1.0] — 2026-06-02
 
 Initial release.

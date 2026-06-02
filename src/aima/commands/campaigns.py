@@ -126,3 +126,50 @@ def create_campaign(
         emit_json(result)
     else:
         render_keyvalue(result, title="Campaign created")
+
+
+@app.command("update")
+def update_campaign(
+    ctx: typer.Context,
+    campaign_id: int = typer.Argument(..., help="Campaign ID (from `campaigns list`)."),
+    title: str = typer.Option(None, "--title", help="New campaign name."),
+    agent_id: int = typer.Option(
+        None, "--agent-id", help="Assign a different agent (from `agents list`)."
+    ),
+    extra_context: str = typer.Option(
+        None, "--extra-context", help="Per-campaign prompt. Literal string or @path/to/file."
+    ),
+    active: bool = typer.Option(False, "--active", help="Activate the campaign."),
+    inactive: bool = typer.Option(False, "--inactive", help="Pause the campaign."),
+) -> None:
+    """Update a campaign: retitle, reassign its agent, or edit its prompt."""
+    state = get_state(ctx)
+
+    if active and inactive:
+        raise UserError("--active and --inactive are mutually exclusive.")
+
+    body: dict = {}
+    if title is not None:
+        body["title"] = title
+    if agent_id is not None:
+        body["agent_id"] = agent_id
+    if extra_context is not None:
+        body["extra_context"] = read_string_or_at_path(extra_context)
+    if active:
+        body["is_active"] = True
+    elif inactive:
+        body["is_active"] = False
+
+    if not body:
+        raise UserError(
+            "Nothing to update. Pass at least one of "
+            "--title, --agent-id, --extra-context, --active/--inactive."
+        )
+
+    with state.client() as client:
+        result = client.update_campaign(campaign_id, body)
+
+    if state.json_mode:
+        emit_json(result)
+    else:
+        render_keyvalue(result, title=f"Campaign {campaign_id} updated")

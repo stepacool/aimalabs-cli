@@ -7,7 +7,7 @@ import os
 import typer
 
 from . import __version__
-from .commands import calls, campaigns, config_cmd, leads, onboard, setup, voices
+from .commands import agents, calls, campaigns, config_cmd, leads, onboard, setup, voices
 from .config import load_config
 from .context import AppState, stdout_is_tty
 from .errors import AimaError
@@ -67,6 +67,7 @@ app.command("onboard", help="Guided end-to-end walkthrough (voice â†’ campaign â
 
 app.add_typer(config_cmd.app, name="config")
 app.add_typer(voices.app, name="voices")
+app.add_typer(agents.app, name="agents")
 app.add_typer(campaigns.app, name="campaigns")
 app.add_typer(leads.app, name="leads")
 app.add_typer(calls.app, name="calls")

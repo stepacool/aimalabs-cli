@@ -1,7 +1,7 @@
 # Homebrew formula for the AIMA Labs CLI.
 #
-# This file belongs in a tap repo (e.g. github.com/aimalabs/homebrew-tap) so
-# users can `brew install aimalabs/tap/aima`. It is kept here as the canonical
+# This file belongs in the tap repo github.com/stepacool/homebrew-tap so
+# users can `brew install stepacool/tap/aima`. It is kept here as the canonical
 # source.
 #
 # Releasing a new version:

@@ -134,6 +134,21 @@ class AimaClient:
             params["is_active"] = str(is_active).lower()
         return self._request("GET", "/api/cli/voices", params=params) or []
 
+    def list_agents(self, *, limit: int | None = None) -> list[dict]:
+        params: dict[str, Any] = {}
+        if limit is not None:
+            params["limit"] = limit
+        return self._request("GET", "/api/cli/agents", params=params) or []
+
+    def create_agent(self, body: dict) -> dict:
+        return self._request("POST", "/api/cli/agents", json=body)
+
+    def get_agent(self, agent_id: int) -> dict:
+        return self._request("GET", f"/api/cli/agents/{agent_id}")
+
+    def update_agent(self, agent_id: int, body: dict) -> dict:
+        return self._request("PATCH", f"/api/cli/agents/{agent_id}", json=body)
+
     def list_campaigns(
         self, *, is_active: bool | None = None, limit: int | None = None
     ) -> list[dict]:
@@ -146,6 +161,9 @@ class AimaClient:
 
     def create_campaign(self, body: dict) -> dict:
         return self._request("POST", "/api/cli/campaigns", json=body)
+
+    def update_campaign(self, campaign_id: int, body: dict) -> dict:
+        return self._request("PATCH", f"/api/cli/campaigns/{campaign_id}", json=body)
 
     def add_test_leads(self, campaign_id: int, leads: list[dict]) -> list[dict]:
         return self._request(

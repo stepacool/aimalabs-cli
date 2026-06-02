@@ -10,26 +10,35 @@ endpoint, except a few client-side composites (`init`, `status`, `onboard`).
 
 ## Install
 
+The PyPI package is `aimalabs-cli`; the command it installs is `aima`.
+
+**Homebrew** (macOS/Linux):
+
 ```bash
-# Recommended — isolated install onto your PATH (provides the `aima` command)
+brew install stepacool/tap/aima
+```
+
+**uv / pipx** — isolated install onto your PATH (provides the `aima` command):
+
+```bash
 uv tool install aimalabs-cli      # or: pipx install aimalabs-cli
-# Run once without installing (ephemeral — does NOT add `aima` to PATH)
-uvx --from aimalabs-cli aima --help
-# or plain pip
+```
+
+**pip:**
+
+```bash
 pip install aimalabs-cli
 ```
 
-The package is `aimalabs-cli`; the command it installs is `aima`. Because the
-two names differ, ephemeral runners need `--from`: use
-`uvx --from aimalabs-cli aima`, not `uvx aimalabs-cli`.
-
-Homebrew:
+**Run once without installing** (ephemeral — does *not* add `aima` to your PATH).
+Because the package and command names differ, `uvx` needs `--from`:
 
 ```bash
-brew install aimalabs/tap/aima
+uvx --from aimalabs-cli aima --help    # not: uvx aimalabs-cli
 ```
 
-The console script is `aima`.
+Upgrade or remove an isolated install later with `uv tool upgrade aimalabs-cli`
+(or `pipx upgrade` / `brew upgrade aima`) and the matching `uninstall`.
 
 ## Quick start
 
@@ -51,6 +60,12 @@ aima campaigns create \
 aima leads add-test --campaign-id 17 --lead "Jane Doe:+15551234567"
 aima calls dispatch 501 --yes
 aima calls status 501 --poll
+
+# Manage agents and tweak a campaign after the fact:
+aima agents list
+aima agents create --name "Stefan" --company-name "Acme Corp" --voice-id 42
+aima agents update 9 --system-prompt @prompts/stefan.txt
+aima campaigns update 17 --title "Q2 outbound (v2)" --agent-id 9 --extra-context "Mention the summer promo."
 ```
 
 ## Configuration
@@ -100,8 +115,13 @@ aima campaigns list --json | jq '.[].campaign_id'
 | `aima status` | Show config and probe that the key still works. |
 | `aima config show \| set \| clear` | Manage local config. |
 | `aima voices list [--language] [--provider] [--voice-type] [--no-active]` | List voices (active by default). |
+| `aima agents list [--limit N]` | List agents, newest first. |
+| `aima agents get <agent_id>` | Show one agent, including its system prompt. |
+| `aima agents create --name N --company-name C [--language] [--system-prompt] [--voice-id]` | Create a reusable agent. |
+| `aima agents update <agent_id> [--name] [--company-name] [--language] [--system-prompt] [--voice-id]` | Update an agent (only the flags you pass). |
 | `aima campaigns list [--active\|--inactive] [--limit N]` | List campaigns, newest first. |
 | `aima campaigns create ...` | Create a campaign + agent + extraction fields atomically. |
+| `aima campaigns update <campaign_id> [--title] [--agent-id] [--extra-context] [--active\|--inactive]` | Retitle, reassign the agent, or edit the prompt. |
 | `aima leads add-test --campaign-id ID --lead NAME:E164` | Add test leads (no dispatch). |
 | `aima leads upload-csv --campaign-id ID --file PATH ...` | Bulk-create leads from CSV (or stdin via `--file -`). |
 | `aima calls dispatch <lead_id>` | Place a **real** outbound call (confirms unless `--yes`). |

@@ -127,6 +127,89 @@ def test_dispatch_with_yes_calls_api(configured, runner, httpx_mock):
     assert data["call_id"] == 9001
 
 
+def test_agents_list_json(configured, runner, httpx_mock):
+    httpx_mock.add_response(
+        method="GET",
+        url="https://api.test/api/cli/agents",
+        json=[{"agent_id": 9, "name": "Stefan", "company_name": "Acme",
+               "language": "en", "system_prompt": None, "selected_voice_id": 42,
+               "created_at": "2026-01-01T00:00:00"}],
+    )
+    result = runner.invoke(app, ["--json", "agents", "list"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert data[0]["agent_id"] == 9
+
+
+def test_agent_create_builds_body(configured, runner, httpx_mock):
+    httpx_mock.add_response(
+        method="POST",
+        url="https://api.test/api/cli/agents",
+        json={"agent_id": 9, "name": "Stefan", "company_name": "Acme",
+              "language": "es", "system_prompt": "Be nice", "selected_voice_id": 42,
+              "created_at": "2026-01-01T00:00:00"},
+    )
+    result = runner.invoke(app, [
+        "--json", "agents", "create",
+        "--name", "Stefan", "--company-name", "Acme",
+        "--language", "es", "--system-prompt", "Be nice", "--voice-id", "42",
+    ])
+    assert result.exit_code == 0
+    sent = json.loads(httpx_mock.get_requests()[0].content)
+    assert sent == {
+        "name": "Stefan", "company_name": "Acme",
+        "language": "es", "system_prompt": "Be nice", "selected_voice_id": 42,
+    }
+
+
+def test_agent_update_sends_only_set_fields(configured, runner, httpx_mock):
+    httpx_mock.add_response(
+        method="PATCH",
+        url="https://api.test/api/cli/agents/9",
+        json={"agent_id": 9, "name": "Renamed", "company_name": "Acme",
+              "language": "en", "system_prompt": None, "selected_voice_id": None,
+              "created_at": "2026-01-01T00:00:00"},
+    )
+    result = runner.invoke(app, ["--json", "agents", "update", "9", "--name", "Renamed"])
+    assert result.exit_code == 0
+    sent = json.loads(httpx_mock.get_requests()[0].content)
+    assert sent == {"name": "Renamed"}
+
+
+def test_agent_update_requires_a_field(configured, cli):
+    result = cli(["--json", "agents", "update", "9"])
+    assert result.aima_exit == 1
+    assert "Nothing to update" in result.aima_stderr
+
+
+def test_campaign_update_builds_body(configured, runner, httpx_mock):
+    httpx_mock.add_response(
+        method="PATCH",
+        url="https://api.test/api/cli/campaigns/17",
+        json={"campaign_id": 17, "title": "New Title", "campaign_type": "voice",
+              "language": "en", "is_active": False, "agent_id": 5,
+              "agent_name": "Stefan", "company_name": "Acme",
+              "selected_voice_id": 42, "created_at": "2026-01-01T00:00:00"},
+    )
+    result = runner.invoke(app, [
+        "--json", "campaigns", "update", "17",
+        "--title", "New Title", "--agent-id", "5",
+        "--extra-context", "Sell harder", "--inactive",
+    ])
+    assert result.exit_code == 0
+    sent = json.loads(httpx_mock.get_requests()[0].content)
+    assert sent == {
+        "title": "New Title", "agent_id": 5,
+        "extra_context": "Sell harder", "is_active": False,
+    }
+
+
+def test_campaign_update_requires_a_field(configured, cli):
+    result = cli(["--json", "campaigns", "update", "17"])
+    assert result.aima_exit == 1
+    assert "Nothing to update" in result.aima_stderr
+
+
 def test_version(runner):
     result = runner.invoke(app, ["--version"])
     assert result.exit_code == 0
