@@ -17,8 +17,8 @@ class Aima < Formula
 
   desc "AWS-CLI-shaped command-line for AIMA Labs voice/WhatsApp campaigns"
   homepage "https://aimalabs.io"
-  url "https://files.pythonhosted.org/packages/c9/2c/a92a357be9e4982362883eef76e41d197772c8e9afd3e8fb9b3ef806a99c/aimalabs_cli-0.1.0.tar.gz"
-  sha256 "e9596ee409cec8f52ed83db58760f0c36199d31c213dfadcdcb784c20b342b48"
+  url "https://files.pythonhosted.org/packages/42/1c/708ead03dc21e97dbd4029ae880e075e702e58ebd5bb14688a5c6af75d9f/aimalabs_cli-0.2.0.tar.gz"
+  sha256 "14dcad48500a99a2007127113b075bc16341bf26bc2ed35650649069ccdb7561"
   license "MIT"
 
   depends_on "libyaml"
