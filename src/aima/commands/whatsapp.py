@@ -7,6 +7,7 @@ import socket
 import urllib.parse
 import uuid
 import webbrowser
+from enum import Enum
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import typer
@@ -18,6 +19,12 @@ from ..output import emit_json, info, render_table, success
 app = typer.Typer(
     help="Register and manage WhatsApp Business credentials.", no_args_is_help=True
 )
+
+
+class WhatsAppMode(str, Enum):
+    coexistence = "coexistence"
+    embedded = "embedded"
+
 
 WHATSAPP_CREDENTIALS_COLUMNS = [
     ("id", "ID"),
@@ -32,7 +39,6 @@ class OAuthCallbackHandler(BaseHTTPRequestHandler):
     """Local HTTP request handler to capture the authorization code callback."""
 
     def log_message(self, format: str, *args: tuple) -> None:
-        # Suppress logging request details to keep the CLI output clean
         pass
 
     def do_GET(self) -> None:
@@ -41,31 +47,15 @@ class OAuthCallbackHandler(BaseHTTPRequestHandler):
 
         if parsed.path in ("/", "/callback"):
             code = params.get("code")
+            self.send_response(200 if code else 400)
+            self.send_header("Content-Type", "text/html")
+            self.end_headers()
             if code:
                 self.server.oauth_code = code[0]
-                self.send_response(200)
-                self.send_header("Content-Type", "text/html")
-                self.end_headers()
-                self.wfile.write(b"""
-                    <html>
-                    <head>
-                        <title>Authentication Successful</title>
-                        <style>
-                            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; text-align: center; padding: 50px; background-color: #f9f9fb; color: #1a1a1a; }
-                            h1 { color: #2e7d32; }
-                            p { font-size: 16px; color: #5f6368; }
-                        </style>
-                    </head>
-                    <body>
-                        <h1>WhatsApp Authentication Successful!</h1>
-                        <p>You can close this tab and return to the CLI.</p>
-                    </body>
-                    </html>
-                """)
+                self.wfile.write(
+                    b"<h1>Success</h1><p>WhatsApp authenticated successfully! You can close this tab now.</p>"
+                )
             else:
-                self.send_response(400)
-                self.send_header("Content-Type", "text/html")
-                self.end_headers()
                 self.wfile.write(b"<h1>Error</h1><p>Missing code parameter in redirect.</p>")
             self.server.should_stop = True
         else:
@@ -81,7 +71,7 @@ def is_port_in_use(port: int) -> bool:
 @app.command("connect")
 def connect(
     ctx: typer.Context,
-    mode: str = typer.Argument(
+    mode: WhatsAppMode = typer.Argument(
         ...,
         help="Connection mode: 'coexistence' (keep business app on phone) or 'embedded' (dedicated API number).",
     ),
@@ -98,9 +88,6 @@ def connect(
     """Connect a WhatsApp account using Meta Embedded Signup / Coexistence OAuth flow."""
     state = get_state(ctx)
 
-    if mode not in ("coexistence", "embedded"):
-        raise UserError("Mode must be one of: coexistence, embedded.")
-
     if is_port_in_use(port):
         raise UserError(f"Port {port} is currently in use. Please choose another port with --port.")
 
@@ -114,16 +101,14 @@ def connect(
     if not facebook_app_id:
         raise UserError("Facebook App ID is not configured on the backend.")
 
-    # Start local server to listen for the OAuth code
     server = HTTPServer(("localhost", port), OAuthCallbackHandler)
     server.oauth_code = None
     server.should_stop = False
 
-    # Construct OAuth URL
     redirect_uri = f"http://localhost:{port}/callback"
     oauth_state = str(uuid.uuid4())
     extras = {"setup": {}, "sessionInfoVersion": 3}
-    if mode == "coexistence":
+    if mode == WhatsAppMode.coexistence:
         extras["featureType"] = "whatsapp_business_app_onboarding"
 
     params = {
@@ -159,8 +144,7 @@ def connect(
 
     info("Authentication code received. Registering credentials with backend...")
     
-    # Map the connection mode back to the backend source parameter
-    source = "coexistence" if mode == "coexistence" else "embedded_signup"
+    source = "coexistence" if mode == WhatsAppMode.coexistence else "embedded_signup"
 
     register_payload = {
         "code": server.oauth_code,

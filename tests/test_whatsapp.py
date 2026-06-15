@@ -155,4 +155,5 @@ def test_whatsapp_connect_invalid_mode(configured, cli):
         ["whatsapp", "connect", "invalid-mode"],
     )
     assert result.aima_exit != 0
-    assert "Mode must be one of: coexistence, embedded." in result.aima_stderr
+    assert "coexistence" in result.aima_stderr
+    assert "embedded" in result.aima_stderr
