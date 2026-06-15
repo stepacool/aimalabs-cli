@@ -6,8 +6,8 @@ import pytest
 from aima.cli import app
 
 
-def test_whatsapp_register_success(configured, runner, httpx_mock, monkeypatch):
-    """Test standard whatsapp registration flow with a successful callback."""
+def test_whatsapp_connect_success(configured, runner, httpx_mock, monkeypatch):
+    """Test standard whatsapp connection flow with a successful callback."""
     # 1. Mock the config endpoint
     httpx_mock.add_response(
         method="GET",
@@ -53,7 +53,7 @@ def test_whatsapp_register_success(configured, runner, httpx_mock, monkeypatch):
 
     result = runner.invoke(
         app,
-        ["--json", "whatsapp", "register", "--port", "8089", "--source", "embedded_signup"],
+        ["--json", "whatsapp", "connect", "embedded", "--port", "8089"],
     )
 
     assert result.exit_code == 0
@@ -66,7 +66,7 @@ def test_whatsapp_register_success(configured, runner, httpx_mock, monkeypatch):
     assert "config_id=67890" in opened_url
     assert "redirect_uri=http%3A%2F%2Flocalhost%3A8089%2Fcallback" in opened_url
 
-    # Check request payload sent to the backend
+    # Check request payload sent to the backend (mapped from embedded -> embedded_signup)
     register_request = next(
         r for r in httpx_mock.get_requests() if r.url.path == "/api/cli/whatsapp/register"
     )
@@ -83,8 +83,8 @@ def test_whatsapp_register_success(configured, runner, httpx_mock, monkeypatch):
     assert output_data["whatsapp_credentials"][0]["display_phone_number"] == "+15550199"
 
 
-def test_whatsapp_register_coexistence(configured, runner, httpx_mock, monkeypatch):
-    """Test coexistence whatsapp registration flow."""
+def test_whatsapp_connect_coexistence(configured, runner, httpx_mock, monkeypatch):
+    """Test coexistence whatsapp connection flow."""
     httpx_mock.add_response(
         method="GET",
         url="https://api.test/api/cli/whatsapp/config",
@@ -127,11 +127,10 @@ def test_whatsapp_register_coexistence(configured, runner, httpx_mock, monkeypat
         [
             "--json",
             "whatsapp",
-            "register",
+            "connect",
+            "coexistence",
             "--port",
             "8090",
-            "--source",
-            "coexistence",
             "--no-system-user",
         ],
     )
@@ -148,3 +147,12 @@ def test_whatsapp_register_coexistence(configured, runner, httpx_mock, monkeypat
         "create_system_user": False,
         "source": "coexistence",
     }
+
+
+def test_whatsapp_connect_invalid_mode(configured, cli):
+    """Test connect fails with invalid mode."""
+    result = cli(
+        ["whatsapp", "connect", "invalid-mode"],
+    )
+    assert result.aima_exit != 0
+    assert "Mode must be one of: coexistence, embedded." in result.aima_stderr

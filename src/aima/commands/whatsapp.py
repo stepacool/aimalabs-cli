@@ -1,4 +1,4 @@
-"""`aima whatsapp ...` — register WhatsApp credentials via Meta OAuth."""
+"""`aima whatsapp connect ...` — register WhatsApp credentials via Meta OAuth."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ import typer
 
 from ..context import get_state
 from ..errors import UserError
-from ..output import emit_json, info, render_table, success, warn
+from ..output import emit_json, info, render_table, success
 
 app = typer.Typer(
     help="Register and manage WhatsApp Business credentials.", no_args_is_help=True
@@ -78,17 +78,15 @@ def is_port_in_use(port: int) -> bool:
         return s.connect_ex(("localhost", port)) == 0
 
 
-@app.command("register")
-def register(
+@app.command("connect")
+def connect(
     ctx: typer.Context,
+    mode: str = typer.Argument(
+        ...,
+        help="Connection mode: 'coexistence' (keep business app on phone) or 'embedded' (dedicated API number).",
+    ),
     port: int = typer.Option(
         8085, "--port", "-p", help="Port to run the local OAuth callback server on."
-    ),
-    source: str = typer.Option(
-        "embedded_signup",
-        "--source",
-        "-s",
-        help="OAuth registration source (embedded_signup or coexistence).",
     ),
     no_browser: bool = typer.Option(
         False, "--no-browser", help="Do not attempt to open the browser automatically."
@@ -97,11 +95,11 @@ def register(
         False, "--no-system-user", help="Do not create a permanent system user token."
     ),
 ) -> None:
-    """Authenticate with WhatsApp via Meta Embedded Signup / Coexistence OAuth flow."""
+    """Connect a WhatsApp account using Meta Embedded Signup / Coexistence OAuth flow."""
     state = get_state(ctx)
 
-    if source not in ("embedded_signup", "coexistence"):
-        raise UserError("Source must be one of: embedded_signup, coexistence.")
+    if mode not in ("coexistence", "embedded"):
+        raise UserError("Mode must be one of: coexistence, embedded.")
 
     if is_port_in_use(port):
         raise UserError(f"Port {port} is currently in use. Please choose another port with --port.")
@@ -125,7 +123,7 @@ def register(
     redirect_uri = f"http://localhost:{port}/callback"
     oauth_state = str(uuid.uuid4())
     extras = {"setup": {}, "sessionInfoVersion": 3}
-    if source == "coexistence":
+    if mode == "coexistence":
         extras["featureType"] = "whatsapp_business_app_onboarding"
 
     params = {
@@ -161,6 +159,9 @@ def register(
 
     info("Authentication code received. Registering credentials with backend...")
     
+    # Map the connection mode back to the backend source parameter
+    source = "coexistence" if mode == "coexistence" else "embedded_signup"
+
     register_payload = {
         "code": server.oauth_code,
         "create_system_user": not no_system_user,
