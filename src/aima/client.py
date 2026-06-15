@@ -190,3 +190,12 @@ class AimaClient:
 
     def register_whatsapp(self, body: dict) -> dict:
         return self._request("POST", "/api/cli/whatsapp/register", json=body)
+
+    def list_whatsapp(self) -> list[dict]:
+        return self._request("GET", "/api/cli/whatsapp") or []
+
+    def validate_whatsapp(self, credentials_id: int) -> dict:
+        return self._request("POST", f"/api/cli/whatsapp/{credentials_id}/validate")
+
+    def delete_whatsapp(self, credentials_id: int) -> dict:
+        return self._request("DELETE", f"/api/cli/whatsapp/{credentials_id}")

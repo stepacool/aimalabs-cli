@@ -157,3 +157,146 @@ def test_whatsapp_connect_invalid_mode(configured, cli):
     assert result.aima_exit != 0
     assert "coexistence" in result.aima_stderr
     assert "embedded" in result.aima_stderr
+
+
+def test_whatsapp_list_json(configured, runner, httpx_mock):
+    """Test list command in JSON mode."""
+    accounts = [
+        {
+            "id": 1,
+            "display_phone_number": "+15550199",
+            "title": "My WA",
+            "waba_id": "waba123",
+            "source": "embedded_signup",
+        }
+    ]
+    httpx_mock.add_response(
+        method="GET",
+        url="https://api.test/api/cli/whatsapp",
+        json=accounts,
+    )
+    result = runner.invoke(app, ["--json", "whatsapp", "list"])
+    assert result.exit_code == 0
+    parsed = json.loads(result.stdout)
+    assert len(parsed) == 1
+    assert parsed[0]["id"] == 1
+    assert parsed[0]["status"] == "embedded_signup"
+
+
+def test_whatsapp_list_text(configured, runner, httpx_mock):
+    """Test list command in text mode."""
+    accounts = [
+        {
+            "id": 1,
+            "display_phone_number": "+15550199",
+            "title": "My WA",
+            "waba_id": "waba123",
+            "source": "embedded_signup",
+        }
+    ]
+    httpx_mock.add_response(
+        method="GET",
+        url="https://api.test/api/cli/whatsapp",
+        json=accounts,
+    )
+    result = runner.invoke(app, ["--no-json", "whatsapp", "list"])
+    assert result.exit_code == 0
+    assert "WhatsApp Credentials (1)" in result.stdout
+    assert "My WA" in result.stdout
+    assert "+15550199" in result.stdout
+
+
+def test_whatsapp_validate_success_json(configured, runner, httpx_mock):
+    """Test validate command in JSON mode when credentials are valid."""
+    validation_response = {
+        "valid": True,
+        "account_status": "APPROVED",
+        "phone_number_status": "VERIFIED",
+        "templates_count": 5,
+        "message": "All good",
+    }
+    httpx_mock.add_response(
+        method="POST",
+        url="https://api.test/api/cli/whatsapp/1/validate",
+        json=validation_response,
+    )
+    result = runner.invoke(app, ["--json", "whatsapp", "validate", "1"])
+    assert result.exit_code == 0
+    parsed = json.loads(result.stdout)
+    assert parsed["valid"] is True
+    assert parsed["account_status"] == "APPROVED"
+
+
+def test_whatsapp_validate_success_text(configured, runner, httpx_mock):
+    """Test validate command in text mode when credentials are valid."""
+    validation_response = {
+        "valid": True,
+        "account_status": "APPROVED",
+        "phone_number_status": "VERIFIED",
+        "templates_count": 5,
+        "message": "All good",
+    }
+    httpx_mock.add_response(
+        method="POST",
+        url="https://api.test/api/cli/whatsapp/1/validate",
+        json=validation_response,
+    )
+    result = runner.invoke(app, ["--no-json", "whatsapp", "validate", "1"])
+    assert result.exit_code == 0
+    assert "Validation Result (ID: 1)" in result.stdout
+    assert "Credentials are valid and working." in result.stderr
+
+
+def test_whatsapp_validate_failed(configured, runner, httpx_mock):
+    """Test validate command when credentials are invalid."""
+    validation_response = {
+        "valid": False,
+        "account_status": "SUSPENDED",
+        "phone_number_status": "UNVERIFIED",
+        "templates_count": 0,
+        "message": "Token expired",
+    }
+    httpx_mock.add_response(
+        method="POST",
+        url="https://api.test/api/cli/whatsapp/1/validate",
+        json=validation_response,
+    )
+    result = runner.invoke(app, ["--no-json", "whatsapp", "validate", "1"])
+    assert result.exit_code == 0
+    assert "Credentials validation failed." in result.stderr
+    assert "Token expired" in result.stdout
+
+
+def test_whatsapp_delete_yes(configured, runner, httpx_mock):
+    """Test delete command with confirmation skipped (--yes)."""
+    httpx_mock.add_response(
+        method="DELETE",
+        url="https://api.test/api/cli/whatsapp/1",
+        json={"ok": True},
+    )
+    result = runner.invoke(app, ["--no-json", "whatsapp", "delete", "1", "--yes"])
+    assert result.exit_code == 0
+    assert "WhatsApp credentials ID 1 deleted successfully." in result.stderr
+
+
+def test_whatsapp_delete_confirm_no(configured, runner, httpx_mock):
+    """Test delete command when user confirms NO."""
+    result = runner.invoke(app, ["--no-json", "whatsapp", "delete", "1"], input="n\n")
+    assert result.exit_code == 0
+    # No request should have been made to delete
+    delete_reqs = [r for r in httpx_mock.get_requests() if r.method == "DELETE"]
+    assert len(delete_reqs) == 0
+
+
+def test_whatsapp_delete_confirm_yes(configured, runner, httpx_mock):
+    """Test delete command when user confirms YES."""
+    httpx_mock.add_response(
+        method="DELETE",
+        url="https://api.test/api/cli/whatsapp/1",
+        json={"ok": True},
+    )
+    result = runner.invoke(app, ["--no-json", "whatsapp", "delete", "1"], input="y\n")
+    assert result.exit_code == 0
+    assert "WhatsApp credentials ID 1 deleted successfully." in result.stderr
+    delete_reqs = [r for r in httpx_mock.get_requests() if r.method == "DELETE"]
+    assert len(delete_reqs) == 1

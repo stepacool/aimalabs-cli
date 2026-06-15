@@ -1,4 +1,4 @@
-"""`aima whatsapp connect ...` — register WhatsApp credentials via Meta OAuth."""
+"""`aima whatsapp connect/list/validate/delete ...` — manage WhatsApp credentials."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ import typer
 
 from ..context import get_state
 from ..errors import UserError
-from ..output import emit_json, info, render_table, success
+from ..output import emit_json, info, render_keyvalue, render_table, success, warn
 
 app = typer.Typer(
     help="Register and manage WhatsApp Business credentials.", no_args_is_help=True
@@ -164,3 +164,75 @@ def connect(
             WHATSAPP_CREDENTIALS_COLUMNS,
             title="Registered WhatsApp Accounts",
         )
+
+
+@app.command("list")
+def list_accounts(ctx: typer.Context) -> None:
+    """List all WhatsApp credentials registered to your account."""
+    state = get_state(ctx)
+    with state.client() as client:
+        accounts = client.list_whatsapp()
+
+    # Backwards compatibility of headers for WHATSAPP_CREDENTIALS_COLUMNS
+    for account in accounts:
+        # backend returns display_phone_number and source, map status if not present
+        if "status" not in account:
+            account["status"] = account.get("source", "embedded_signup")
+
+    if state.json_mode:
+        emit_json(accounts)
+    else:
+        render_table(
+            accounts,
+            WHATSAPP_CREDENTIALS_COLUMNS,
+            title=f"WhatsApp Credentials ({len(accounts)})",
+        )
+
+
+@app.command("validate")
+def validate(
+    ctx: typer.Context,
+    credentials_id: int = typer.Argument(..., help="WhatsApp credentials ID to validate."),
+) -> None:
+    """Validate WhatsApp Business API credentials by testing actual API calls."""
+    state = get_state(ctx)
+    with state.client() as client:
+        result = client.validate_whatsapp(credentials_id)
+
+    if state.json_mode:
+        emit_json(result)
+    else:
+        base = {
+            "valid": result.get("valid"),
+            "account_status": result.get("account_status"),
+            "phone_number_status": result.get("phone_number_status"),
+            "templates_count": result.get("templates_count"),
+            "message": result.get("message"),
+        }
+        render_keyvalue(base, title=f"Validation Result (ID: {credentials_id})")
+        if result.get("valid"):
+            success("Credentials are valid and working.")
+        else:
+            warn("Credentials validation failed.")
+
+
+@app.command("delete")
+def delete(
+    ctx: typer.Context,
+    credentials_id: int = typer.Argument(..., help="WhatsApp credentials ID to delete."),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
+) -> None:
+    """Delete a WhatsApp credentials entry by ID."""
+    state = get_state(ctx)
+
+    if not yes and not state.json_mode:
+        if not typer.confirm(f"Are you sure you want to delete WhatsApp credentials ID {credentials_id}?"):
+            raise typer.Exit(code=0)
+
+    with state.client() as client:
+        result = client.delete_whatsapp(credentials_id)
+
+    if state.json_mode:
+        emit_json(result)
+    else:
+        success(f"WhatsApp credentials ID {credentials_id} deleted successfully.")
