@@ -184,3 +184,9 @@ class AimaClient:
 
     def lead_status(self, lead_id: int) -> dict:
         return self._request("GET", f"/api/cli/leads/{lead_id}/status")
+
+    def get_whatsapp_config(self) -> dict:
+        return self._request("GET", "/api/cli/whatsapp/config")
+
+    def register_whatsapp(self, body: dict) -> dict:
+        return self._request("POST", "/api/cli/whatsapp/register", json=body)
