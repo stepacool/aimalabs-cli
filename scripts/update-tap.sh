@@ -2,6 +2,11 @@
 # Automatically update the Homebrew tap formula for aimalabs-cli
 set -e
 
+if [ -z "${TAP_GITHUB_TOKEN:-}" ]; then
+    echo "❌ TAP_GITHUB_TOKEN is not set (add it to repo secrets with push access to the tap)."
+    exit 1
+fi
+
 PACKAGE_NAME="aimalabs-cli"
 TAP_REPO="stepacool/homebrew-tap"
 TAP_NAME="stepacool/tap"
@@ -46,6 +51,7 @@ echo "🚀 Committing and pushing to your tap..."
 cd "$TAP_DIR"
 git config user.name "github-actions[bot]"
 git config user.email "github-actions[bot]@users.noreply.github.com"
+git remote set-url origin "https://x-access-token:${TAP_GITHUB_TOKEN}@github.com/${TAP_REPO}.git"
 
 git add "$FORMULA_FILE"
 git commit -m "Bump $PACKAGE_NAME to $LATEST_VERSION"
