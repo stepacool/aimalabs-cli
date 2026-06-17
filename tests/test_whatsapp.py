@@ -180,7 +180,7 @@ def test_whatsapp_list_json(configured, runner, httpx_mock):
     parsed = json.loads(result.stdout)
     assert len(parsed) == 1
     assert parsed[0]["id"] == 1
-    assert parsed[0]["status"] == "embedded_signup"
+    assert parsed[0]["source"] == "embedded_signup"
 
 
 def test_whatsapp_list_text(configured, runner, httpx_mock):

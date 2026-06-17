@@ -31,7 +31,7 @@ WHATSAPP_CREDENTIALS_COLUMNS = [
     ("display_phone_number", "Phone Number"),
     ("title", "Title"),
     ("waba_id", "WABA ID"),
-    ("status", "Status"),
+    ("source", "Source"),
 ]
 
 
@@ -175,9 +175,9 @@ def list_accounts(ctx: typer.Context) -> None:
 
     # Backwards compatibility of headers for WHATSAPP_CREDENTIALS_COLUMNS
     for account in accounts:
-        # backend returns display_phone_number and source, map status if not present
-        if "status" not in account:
-            account["status"] = account.get("source", "embedded_signup")
+        # backend returns display_phone_number and source, map source if not present
+        if "source" not in account:
+            account["source"] = account.get("status", "embedded_signup")
 
     if state.json_mode:
         emit_json(accounts)
