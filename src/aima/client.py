@@ -184,3 +184,28 @@ class AimaClient:
 
     def lead_status(self, lead_id: int) -> dict:
         return self._request("GET", f"/api/cli/leads/{lead_id}/status")
+
+    def get_whatsapp_config(self) -> dict:
+        return self._request("GET", "/api/cli/whatsapp/config")
+
+    def create_whatsapp_connect_session(self, source: str) -> dict:
+        return self._request(
+            "POST",
+            "/api/cli/whatsapp/connect-sessions",
+            json={"source": source},
+        )
+
+    def get_whatsapp_connect_session(self, session_id: str) -> dict:
+        return self._request("GET", f"/api/cli/whatsapp/connect-sessions/{session_id}")
+
+    def register_whatsapp(self, body: dict) -> dict:
+        return self._request("POST", "/api/cli/whatsapp/register", json=body)
+
+    def list_whatsapp(self) -> list[dict]:
+        return self._request("GET", "/api/cli/whatsapp") or []
+
+    def validate_whatsapp(self, credentials_id: int) -> dict:
+        return self._request("POST", f"/api/cli/whatsapp/{credentials_id}/validate")
+
+    def delete_whatsapp(self, credentials_id: int) -> dict:
+        return self._request("DELETE", f"/api/cli/whatsapp/{credentials_id}")
