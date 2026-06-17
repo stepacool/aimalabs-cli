@@ -4,6 +4,13 @@ All notable changes to `aimalabs-cli` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] — 2026-06-18
+
+### Added
+- `aima whatsapp list|connect|validate|delete` — manage WhatsApp Business accounts.
+- `aima whatsapp connect` opens the dashboard embedded-signup flow in the browser
+  and polls session status (no local OAuth redirect server).
+
 ## [0.2.0] — 2026-06-03
 
 ### Added
