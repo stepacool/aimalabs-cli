@@ -7,6 +7,7 @@ All notable changes to `aimalabs-cli` are documented here. The format follows
 ## [0.3.0] — 2026-06-18
 
 ### Added
+
 - `aima whatsapp list|connect|validate|delete` — manage WhatsApp Business accounts.
 - `aima whatsapp connect` opens the dashboard embedded-signup flow in the browser
   and polls session status (no local OAuth redirect server).
@@ -14,6 +15,7 @@ All notable changes to `aimalabs-cli` are documented here. The format follows
 ## [0.2.0] — 2026-06-03
 
 ### Added
+
 - `aima agents list|get|create|update` — manage reusable agents. `create`/`update`
   accept `--name`, `--company-name`, `--language`, `--system-prompt` (`@file`),
   and `--voice-id`.
@@ -25,6 +27,7 @@ All notable changes to `aimalabs-cli` are documented here. The format follows
 Initial release.
 
 ### Added
+
 - `aima init`, `aima status`, `aima config show|set|clear` — setup and config.
 - `aima voices list` with `--language`, `--provider`, `--voice-type`, `--no-active`.
 - `aima campaigns list|create` — including `--field title:type:description`
