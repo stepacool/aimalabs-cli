@@ -37,7 +37,10 @@ sed -i.bak -e "s|sha256 \".*\"|sha256 \"$TAR_SHA\"|" "$FULL_FORMULA_PATH"
 rm -f "$FULL_FORMULA_PATH.bak"
 
 echo "🍺 Running 'brew update-python-resources'..."
-brew update-python-resources "$TAP_NAME/aima"
+if ! brew update-python-resources "$TAP_NAME/aima"; then
+    echo "⚠️  brew update-python-resources failed (often PyPI's 24h release cooldown on a fresh publish)."
+    echo "    Continuing with updated url/sha256 only; existing resource blocks are unchanged."
+fi
 
 echo "🚀 Committing and pushing to your tap..."
 cd "$TAP_DIR"

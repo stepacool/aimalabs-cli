@@ -101,7 +101,9 @@ def test_whatsapp_connect_coexistence_source(configured, runner, httpx_mock, mon
 
     assert result.exit_code == 0
     create_request = next(
-        r for r in httpx_mock.get_requests() if r.url.path == "/api/cli/whatsapp/connect-sessions" and r.method == "POST"
+        r
+        for r in httpx_mock.get_requests()
+        if r.url.path == "/api/cli/whatsapp/connect-sessions" and r.method == "POST"
     )
     assert json.loads(create_request.content) == {"source": "coexistence"}
 

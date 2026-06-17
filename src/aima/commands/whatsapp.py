@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 import webbrowser
-from enum import Enum
+from enum import StrEnum
 
 import typer
 
@@ -17,7 +17,7 @@ app = typer.Typer(
 )
 
 
-class WhatsAppMode(str, Enum):
+class WhatsAppMode(StrEnum):
     coexistence = "coexistence"
     embedded = "embedded"
 
@@ -64,7 +64,10 @@ def connect(
     ctx: typer.Context,
     mode: WhatsAppMode = typer.Argument(
         ...,
-        help="Connection mode: 'coexistence' (keep business app on phone) or 'embedded' (dedicated API number).",
+        help=(
+            "Connection mode: 'coexistence' (keep business app on phone) "
+            "or 'embedded' (dedicated API number)."
+        ),
     ),
     no_browser: bool = typer.Option(
         False, "--no-browser", help="Do not attempt to open the browser automatically."
@@ -187,7 +190,8 @@ def delete(
     state = get_state(ctx)
 
     if not yes and not state.json_mode:
-        if not typer.confirm(f"Are you sure you want to delete WhatsApp credentials ID {credentials_id}?"):
+        prompt = f"Delete WhatsApp credentials ID {credentials_id}?"
+        if not typer.confirm(prompt):
             raise typer.Exit(code=0)
 
     with state.client() as client:
