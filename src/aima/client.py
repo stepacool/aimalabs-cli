@@ -188,6 +188,16 @@ class AimaClient:
     def get_whatsapp_config(self) -> dict:
         return self._request("GET", "/api/cli/whatsapp/config")
 
+    def create_whatsapp_connect_session(self, source: str) -> dict:
+        return self._request(
+            "POST",
+            "/api/cli/whatsapp/connect-sessions",
+            json={"source": source},
+        )
+
+    def get_whatsapp_connect_session(self, session_id: str) -> dict:
+        return self._request("GET", f"/api/cli/whatsapp/connect-sessions/{session_id}")
+
     def register_whatsapp(self, body: dict) -> dict:
         return self._request("POST", "/api/cli/whatsapp/register", json=body)
 
