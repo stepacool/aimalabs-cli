@@ -30,7 +30,7 @@ WHATSAPP_CREDENTIALS_COLUMNS = [
     ("id", "ID"),
     ("display_phone_number", "Phone Number"),
     ("title", "Title"),
-    ("waba_id", "WABA ID"),
+    ("whatsapp_business_account_id", "WABA ID"),
     ("source", "Source"),
 ]
 
