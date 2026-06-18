@@ -10,6 +10,7 @@ import typer
 from ..context import get_state
 from ..errors import UserError
 from ..output import emit_json, info, render_keyvalue, success, warn
+from ..prompts import ask_confirm
 
 app = typer.Typer(help="Dispatch outbound calls and check status.", no_args_is_help=True)
 
@@ -33,7 +34,7 @@ def dispatch(
                 "Pass --yes to place the call."
             )
         warn(f"This places a REAL phone call to lead {lead_id}.")
-        if not typer.confirm("Dispatch now?", default=False):
+        if not ask_confirm("Dispatch now?", default=False):
             raise typer.Exit(code=0)
     with state.client() as client:
         result = client.dispatch(lead_id)

@@ -6,6 +6,7 @@ import typer
 
 from ..context import get_state
 from ..output import emit_json, render_keyvalue, render_table, success, warn
+from ..prompts import ask_confirm
 from .whatsapp_connect import (
     DEFAULT_CONNECT_TIMEOUT_SECONDS,
     WhatsAppMode,
@@ -170,7 +171,7 @@ def delete(
 
     if not yes and not state.json_mode:
         prompt = f"Delete WhatsApp credentials ID {credentials_id}?"
-        if not typer.confirm(prompt):
+        if not ask_confirm(prompt):
             raise typer.Exit(code=0)
 
     with state.client() as client:

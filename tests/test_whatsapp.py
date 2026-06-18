@@ -216,18 +216,20 @@ def test_whatsapp_delete_yes(configured, runner, httpx_mock):
     assert "deleted" in (result.stdout + result.stderr).lower()
 
 
-def test_whatsapp_delete_confirm_no(configured, runner, httpx_mock):
-    result = runner.invoke(app, ["--no-json", "whatsapp", "delete", "1"], input="n\n")
+def test_whatsapp_delete_confirm_no(configured, runner, httpx_mock, monkeypatch):
+    monkeypatch.setattr("aima.commands.whatsapp.ask_confirm", lambda *_a, **_k: False)
+    result = runner.invoke(app, ["--no-json", "whatsapp", "delete", "1"])
     assert result.exit_code == 0
 
 
-def test_whatsapp_delete_confirm_yes(configured, runner, httpx_mock):
+def test_whatsapp_delete_confirm_yes(configured, runner, httpx_mock, monkeypatch):
+    monkeypatch.setattr("aima.commands.whatsapp.ask_confirm", lambda *_a, **_k: True)
     httpx_mock.add_response(
         method="DELETE",
         url="https://api.test/api/cli/whatsapp/1",
         json={"ok": True},
     )
-    result = runner.invoke(app, ["--no-json", "whatsapp", "delete", "1"], input="y\n")
+    result = runner.invoke(app, ["--no-json", "whatsapp", "delete", "1"])
     assert result.exit_code == 0
     assert "deleted" in (result.stdout + result.stderr).lower()
 

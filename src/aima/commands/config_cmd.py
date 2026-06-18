@@ -7,6 +7,7 @@ import typer
 from .. import config as cfg
 from ..context import get_state, reload_state
 from ..output import emit_json, info, render_keyvalue, success
+from ..prompts import ask_confirm
 
 app = typer.Typer(help="Inspect and edit local CLI configuration.", no_args_is_help=True)
 
@@ -54,7 +55,7 @@ def clear(
             emit_json({"cleared": False, "config_path": str(path)})
         return
     if not yes and not state.json_mode:
-        if not typer.confirm(f"Delete {path}?"):
+        if not ask_confirm(f"Delete {path}?"):
             raise typer.Exit(code=0)
     cfg.clear_config()
     if state.json_mode:

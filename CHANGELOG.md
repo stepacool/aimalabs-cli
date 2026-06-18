@@ -4,6 +4,15 @@ All notable changes to `aimalabs-cli` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- Interactive prompts use [Questionary](https://questionary.readthedocs.io/) instead of Typer/Click
+  `prompt`/`confirm`. List picks (channel, voice, credentials, connect mode, templates) are
+  arrow-key select menus after the Rich table; inbound-only is an explicit menu item when
+  templates exist.
+
 ## [0.3.0] — 2026-06-18
 
 ### Added

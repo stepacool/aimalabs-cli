@@ -11,6 +11,7 @@ from ..context import get_state
 from ..errors import UserError
 from ..output import emit_json, info, render_keyvalue, render_table
 from ..parsing import parse_lead_spec, parse_map_spec, read_file_or_stdin
+from ..prompts import ask_confirm
 
 app = typer.Typer(help="Add test leads or bulk-upload from CSV.", no_args_is_help=True)
 
@@ -71,7 +72,7 @@ def upload_csv(
                 f"Refusing to upload {row_count} leads non-interactively. "
                 "Pass --yes to confirm."
             )
-        if not typer.confirm(f"Upload {row_count} leads to campaign {campaign_id}?"):
+        if not ask_confirm(f"Upload {row_count} leads to campaign {campaign_id}?"):
             raise typer.Exit(code=0)
 
     with state.client() as client:
@@ -101,7 +102,7 @@ def initiate(
             raise UserError(
                 f"Refusing to initiate lead {lead_id} non-interactively. Pass --yes to confirm."
             )
-        if not typer.confirm(f"Send WhatsApp template to lead {lead_id}?", default=False):
+        if not ask_confirm(f"Send WhatsApp template to lead {lead_id}?", default=False):
             raise typer.Exit(code=0)
 
     with state.client() as client:

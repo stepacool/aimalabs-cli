@@ -5,37 +5,50 @@ from __future__ import annotations
 from typing import Literal
 
 import typer
+from questionary import Choice
 
 from ..errors import UserError
 from ..output import info, render_table, success, warn
+from ..prompts import INBOUND_TEMPLATE, ask_confirm, ask_row, ask_select, ask_text
 from .calls import poll_lead_status, render_lead_status, whatsapp_poll_done, whatsapp_poll_progress
 from .whatsapp import TEMPLATE_PICK_COLUMNS, WHATSAPP_CREDENTIALS_COLUMNS
 from .whatsapp_connect import WhatsAppMode, run_connect_flow
+
+
+def _credentials_label(account: dict) -> str:
+    cred_id = account.get("id")
+    phone = account.get("display_phone_number") or "—"
+    title = account.get("title") or ""
+    suffix = f" ({title})" if title else ""
+    return f"{cred_id} — {phone}{suffix}"
 
 
 def resolve_whatsapp_mode(
     client,
     credentials_id: int,
 ) -> tuple[Literal["outbound", "inbound"], tuple[str, str] | None]:
-    """Pick outbound template by #, inbound-only via 0, or confirm when none exist."""
+    """Pick outbound template or inbound-only via select menu."""
     info("Fetching approved templates…")
     templates = client.list_whatsapp_templates(credentials_id)
     if templates:
         indexed = [{**template, "#": index} for index, template in enumerate(templates, start=1)]
         render_table(indexed, TEMPLATE_PICK_COLUMNS, title=f"Templates ({len(templates)})")
-        info("Enter 0 for inbound-only (no outbound template).")
-        pick = typer.prompt("Pick template #", type=int)
-        if pick == 0:
-            return "inbound", None
-        if pick < 1 or pick > len(templates):
-            raise UserError(
-                f"Template # must be 0 (inbound-only) or between 1 and {len(templates)}."
+        choices: list[Choice] = [
+            Choice("Inbound only (no outbound template)", value=INBOUND_TEMPLATE),
+        ]
+        for template in templates:
+            name = template["name"]
+            language = template["language"]
+            choices.append(
+                Choice(f"{name} ({language})", value=(name, language)),
             )
-        selected = templates[pick - 1]
-        return "outbound", (selected["name"], selected["language"])
+        selected = ask_select("Pick template", choices)
+        if selected == INBOUND_TEMPLATE:
+            return "inbound", None
+        return "outbound", selected
 
     warn("No approved message templates found.")
-    if typer.confirm("Set up inbound-only campaign instead?", default=True):
+    if ask_confirm("Set up inbound-only campaign instead?", default=True):
         return "inbound", None
 
     raise UserError(
@@ -56,8 +69,13 @@ def _resolve_credentials_id(client, *, json_mode: bool) -> tuple[int, str | None
             WHATSAPP_CREDENTIALS_COLUMNS,
             title=f"WhatsApp Credentials ({len(accounts)})",
         )
-        if typer.confirm("Use an existing WhatsApp account?", default=True):
-            cred_id = typer.prompt("Credentials ID", type=int)
+        if ask_confirm("Use an existing WhatsApp account?", default=True):
+            cred_id = ask_row(
+                "Pick credentials",
+                accounts,
+                label=_credentials_label,
+                value_key="id",
+            )
             phone = next(
                 (a.get("display_phone_number") for a in accounts if a.get("id") == cred_id),
                 None,
@@ -65,11 +83,14 @@ def _resolve_credentials_id(client, *, json_mode: bool) -> tuple[int, str | None
             return cred_id, phone
 
     info("No WhatsApp account selected — starting browser connect.")
-    mode_answer = (
-        typer.prompt("Connect mode (embedded/coexistence)", default="embedded").strip().lower()
+    mode_answer = ask_select(
+        "Connect mode",
+        [
+            Choice("Embedded", value="embedded"),
+            Choice("Coexistence", value="coexistence"),
+        ],
+        default="embedded",
     )
-    if mode_answer not in ("embedded", "coexistence"):
-        raise UserError("Connect mode must be 'embedded' or 'coexistence'.")
     mode = WhatsAppMode.embedded if mode_answer == "embedded" else WhatsAppMode.coexistence
 
     result = run_connect_flow(client, mode, json_mode=json_mode)
@@ -82,7 +103,12 @@ def _resolve_credentials_id(client, *, json_mode: bool) -> tuple[int, str | None
         return cred["id"], cred.get("display_phone_number")
 
     render_table(credentials, WHATSAPP_CREDENTIALS_COLUMNS, title="Connected WhatsApp Accounts")
-    cred_id = typer.prompt("Pick credentials ID", type=int)
+    cred_id = ask_row(
+        "Pick credentials",
+        credentials,
+        label=_credentials_label,
+        value_key="id",
+    )
     phone = next(
         (c.get("display_phone_number") for c in credentials if c.get("id") == cred_id),
         None,
@@ -102,12 +128,12 @@ def onboard_whatsapp(ctx: typer.Context, client) -> None:
     mode, template = resolve_whatsapp_mode(client, credentials_id)
 
     body: dict = {
-        "title": typer.prompt("Campaign title"),
-        "company_name": typer.prompt("Company name"),
+        "title": ask_text("Campaign title"),
+        "company_name": ask_text("Company name"),
         "campaign_type": "whatsapp",
         "whatsapp_credentials_id": credentials_id,
     }
-    sys_prompt = typer.prompt("System prompt (blank for default)", default="", show_default=False)
+    sys_prompt = ask_text("System prompt (blank for default)", default="")
     if sys_prompt.strip():
         body["system_prompt"] = sys_prompt
     if fields := _collect_fields():
@@ -132,8 +158,8 @@ def onboard_whatsapp(ctx: typer.Context, client) -> None:
 
     assert template is not None
     template_name, template_language = template
-    lead_name = typer.prompt("Test lead name")
-    lead_phone = typer.prompt("Test lead phone (E.164, e.g. +15551234567)")
+    lead_name = ask_text("Test lead name")
+    lead_phone = ask_text("Test lead phone (E.164, e.g. +15551234567)")
     info("Adding test lead…")
     leads = client.add_test_leads(campaign_id, [{"name": lead_name, "phone_number": lead_phone}])
     if not leads:
@@ -142,7 +168,7 @@ def onboard_whatsapp(ctx: typer.Context, client) -> None:
     success(f"Lead {lead_id} added.")
 
     warn(f"This will send template '{template_name}' ({template_language}) to {lead_name}.")
-    if not typer.confirm("Send template now?", default=False):
+    if not ask_confirm("Send template now?", default=False):
         info(f"Skipped. Send later with: aima leads initiate {lead_id}")
         return
 
