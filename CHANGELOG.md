@@ -8,6 +8,9 @@ All notable changes to `aimalabs-cli` are documented here. The format follows
 
 ### Added
 
+- `aima onboard` WhatsApp channel: connect, template picker (`0` = inbound-only), test send + poll.
+- `aima whatsapp templates`, `aima leads initiate`, and WhatsApp `campaigns create` flags.
+
 - `aima whatsapp list|connect|validate|delete` — manage WhatsApp Business accounts.
 - `aima whatsapp connect` opens the dashboard embedded-signup flow in the browser
   and polls session status (no local OAuth redirect server).

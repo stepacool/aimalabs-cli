@@ -60,7 +60,7 @@ def test_whatsapp_connect_session_flow(configured, runner, httpx_mock, monkeypat
         return True
 
     monkeypatch.setattr("webbrowser.open", mock_webbrowser_open)
-    monkeypatch.setattr("aima.commands.whatsapp.time.sleep", lambda _seconds: None)
+    monkeypatch.setattr("aima.commands.whatsapp_connect.time.sleep", lambda _seconds: None)
 
     result = runner.invoke(app, ["--json", "whatsapp", "connect", "embedded"])
 
@@ -95,7 +95,7 @@ def test_whatsapp_connect_coexistence_source(configured, runner, httpx_mock, mon
     )
 
     monkeypatch.setattr("webbrowser.open", lambda _url: True)
-    monkeypatch.setattr("aima.commands.whatsapp.time.sleep", lambda _seconds: None)
+    monkeypatch.setattr("aima.commands.whatsapp_connect.time.sleep", lambda _seconds: None)
 
     result = runner.invoke(app, ["--json", "whatsapp", "connect", "coexistence"])
 
@@ -230,3 +230,13 @@ def test_whatsapp_delete_confirm_yes(configured, runner, httpx_mock):
     result = runner.invoke(app, ["--no-json", "whatsapp", "delete", "1"], input="y\n")
     assert result.exit_code == 0
     assert "deleted" in (result.stdout + result.stderr).lower()
+
+
+def test_whatsapp_templates_json(configured, runner, httpx_mock):
+    httpx_mock.add_response(
+        url="https://api.test/api/cli/whatsapp/4/templates",
+        json=[{"name": "hi", "language": "en", "status": "APPROVED", "category": "UTILITY"}],
+    )
+    result = runner.invoke(app, ["--json", "whatsapp", "templates", "4"])
+    assert result.exit_code == 0
+    assert json.loads(result.stdout)[0]["name"] == "hi"

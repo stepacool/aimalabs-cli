@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 
 import typer
 
@@ -11,6 +12,9 @@ from ..errors import UserError
 from ..output import emit_json, info, render_keyvalue, success, warn
 
 app = typer.Typer(help="Dispatch outbound calls and check status.", no_args_is_help=True)
+
+_WHATSAPP_DONE_STATUSES = frozenset({"sent", "delivered"})
+_WHATSAPP_PRE_SEND_STATUSES = frozenset({"not_started", "failed_to_start"})
 
 
 @app.command("dispatch")
@@ -54,35 +58,73 @@ def status(
         if not poll:
             result = client.lead_status(lead_id)
         else:
-            result = _poll(ctx, client, lead_id, poll_interval, poll_timeout)
+            result = poll_lead_status(
+                client,
+                lead_id,
+                interval=poll_interval,
+                timeout=poll_timeout,
+                is_done=call_poll_done,
+                progress=call_poll_progress,
+                json_mode=state.json_mode,
+            )
 
     if state.json_mode:
         emit_json(result)
     else:
-        _render_status(result)
+        render_lead_status(result)
 
 
-def _poll(ctx, client, lead_id: int, interval: int, timeout: int) -> dict:
-    state = get_state(ctx)
+def poll_lead_status(
+    client,
+    lead_id: int,
+    *,
+    interval: int,
+    timeout: int,
+    is_done: Callable[[dict], bool],
+    progress: Callable[[dict], str],
+    json_mode: bool,
+) -> dict:
     deadline = time.monotonic() + timeout
     result = client.lead_status(lead_id)
-    while True:
-        call = result.get("latest_call") or {}
-        if call.get("ended_at"):
-            return result
+    while not is_done(result):
         if time.monotonic() >= deadline:
-            if not state.json_mode:
-                warn(f"Poll timed out after {timeout}s; call has not ended.")
+            if not json_mode:
+                warn(f"Poll timed out after {timeout}s.")
             return result
-        if not state.json_mode:
-            status_str = (call.get("status") or "pending")
-            info(f"… {status_str}; re-checking in {interval}s")
+        if not json_mode:
+            info(progress(result))
         remaining = deadline - time.monotonic()
         time.sleep(min(interval, max(0.0, remaining)))
         result = client.lead_status(lead_id)
+    return result
 
 
-def _render_status(result: dict) -> None:
+def call_poll_done(result: dict) -> bool:
+    return bool((result.get("latest_call") or {}).get("ended_at"))
+
+
+def call_poll_progress(result: dict) -> str:
+    status = (result.get("latest_call") or {}).get("status") or "pending"
+    return f"… {status}; re-checking"
+
+
+def whatsapp_poll_done(result: dict) -> bool:
+    conv = result.get("latest_conversation") or {}
+    if conv.get("latest_message_status") in _WHATSAPP_DONE_STATUSES:
+        return True
+    status = conv.get("status")
+    return bool(status and status not in _WHATSAPP_PRE_SEND_STATUSES)
+
+
+def whatsapp_poll_progress(result: dict) -> str:
+    conv = result.get("latest_conversation") or {}
+    return (
+        f"… conversation={conv.get('status') or 'pending'} "
+        f"message={conv.get('latest_message_status') or 'pending'}; re-checking"
+    )
+
+
+def render_lead_status(result: dict) -> None:
     head = {k: result.get(k) for k in ("lead_id", "name", "phone_number")}
     render_keyvalue(head, title="Lead")
 
@@ -92,9 +134,16 @@ def _render_status(result: dict) -> None:
 
         render_table(values, [("key", "Field"), ("value", "Value")], title="Extracted values")
 
+    conv = result.get("latest_conversation")
+    if conv:
+        render_keyvalue(conv, title="Latest conversation")
+        if conv.get("latest_message_status") in _WHATSAPP_DONE_STATUSES:
+            success(f"Message {conv.get('latest_message_status')}.")
+
     call = result.get("latest_call")
     if not call:
-        info("No call placed yet.")
+        if not conv:
+            info("No call placed yet.")
         return
     render_keyvalue(call, title="Latest call")
     if call.get("ended_at"):

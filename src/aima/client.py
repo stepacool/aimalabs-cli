@@ -210,8 +210,14 @@ class AimaClient:
     def validate_whatsapp(self, credentials_id: int) -> dict:
         return self._request("POST", f"/api/cli/whatsapp/{credentials_id}/validate")
 
+    def list_whatsapp_templates(self, credentials_id: int) -> list[dict]:
+        return self._request("GET", f"/api/cli/whatsapp/{credentials_id}/templates") or []
+
     def delete_whatsapp(self, credentials_id: int) -> dict:
         return self._request("DELETE", f"/api/cli/whatsapp/{credentials_id}")
+
+    def initiate_lead(self, lead_id: int) -> dict:
+        return self._request("POST", f"/api/cli/leads/{lead_id}/initiate")
 
     def list_phones(self, *, limit: int | None = None) -> list[dict]:
         params: dict[str, Any] = {}

@@ -7,7 +7,19 @@ import os
 import typer
 
 from . import __version__
-from .commands import agents, calls, campaigns, config_cmd, leads, onboard, phones, setup, usage, voices, whatsapp
+from .commands import (
+    agents,
+    calls,
+    campaigns,
+    config_cmd,
+    leads,
+    onboard,
+    phones,
+    setup,
+    usage,
+    voices,
+    whatsapp,
+)
 from .config import load_config
 from .context import AppState, stdout_is_tty
 from .errors import AimaError
@@ -59,7 +71,7 @@ def _root(
 
 app.command("init", help="Interactive first-run setup wizard.")(setup.init)
 app.command("status", help="Show config and probe that the API key works.")(setup.status)
-app.command("onboard", help="Guided end-to-end walkthrough (voice → campaign → call).")(
+app.command("onboard", help="Guided walkthrough (voice or WhatsApp).")(
     onboard.onboard
 )
 

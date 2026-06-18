@@ -45,7 +45,7 @@ Upgrade or remove an isolated install later with `uv tool upgrade aimalabs-cli`
 ```bash
 aima init                 # prompts for your API key, validates it, writes ~/.aima/config.json (0600)
 aima voices list          # browse available voices
-aima onboard              # guided: voice → campaign → test lead → real call → live status
+aima onboard              # guided: voice or WhatsApp
 ```
 
 Or do it by hand:
@@ -123,11 +123,14 @@ aima campaigns list --json | jq '.[].campaign_id'
 | `aima campaigns create ...` | Create a campaign + agent + extraction fields atomically. |
 | `aima campaigns update <campaign_id> [--title] [--agent-id] [--extra-context] [--active\|--inactive]` | Retitle, reassign the agent, or edit the prompt. |
 | `aima leads add-test --campaign-id ID --lead NAME:E164` | Add test leads (no dispatch). |
+| `aima leads initiate <lead_id>` | Send WhatsApp template (confirms unless `--yes`). |
 | `aima leads upload-csv --campaign-id ID --file PATH ...` | Bulk-create leads from CSV (or stdin via `--file -`). |
+| `aima whatsapp connect embedded\|coexistence` | Browser connect for WhatsApp credentials. |
+| `aima whatsapp templates <credentials_id>` | List APPROVED message templates. |
 | `aima calls dispatch <lead_id>` | Place a **real** outbound call (confirms unless `--yes`). |
-| `aima calls status <lead_id> [--poll]` | Latest call status + extracted values; `--poll` until it ends. |
+| `aima calls status <lead_id> [--poll]` | Lead status (call + conversation); `--poll` until terminal. |
 | `aima usage view` | Current-month voice minutes and WhatsApp leads as `used / total`. |
-| `aima onboard` | Interactive end-to-end walkthrough. |
+| `aima onboard` | Interactive walkthrough (`voice` or `whatsapp`). |
 
 ### Defining extraction fields
 

@@ -2,25 +2,19 @@
 
 from __future__ import annotations
 
-import time
-import webbrowser
-from enum import StrEnum
-
 import typer
 
 from ..context import get_state
-from ..errors import UserError
-from ..output import emit_json, info, render_keyvalue, render_table, success, warn
+from ..output import emit_json, render_keyvalue, render_table, success, warn
+from .whatsapp_connect import (
+    DEFAULT_CONNECT_TIMEOUT_SECONDS,
+    WhatsAppMode,
+    run_connect_flow,
+)
 
 app = typer.Typer(
     help="Register and manage WhatsApp Business credentials.", no_args_is_help=True
 )
-
-
-class WhatsAppMode(StrEnum):
-    coexistence = "coexistence"
-    embedded = "embedded"
-
 
 WHATSAPP_CREDENTIALS_COLUMNS = [
     ("id", "ID"),
@@ -30,33 +24,17 @@ WHATSAPP_CREDENTIALS_COLUMNS = [
     ("source", "Source"),
 ]
 
-POLL_INTERVAL_SECONDS = 3
-DEFAULT_CONNECT_TIMEOUT_SECONDS = 30 * 60
+TEMPLATE_COLUMNS = [
+    ("name", "Name"),
+    ("language", "Language"),
+    ("status", "Status"),
+    ("category", "Category"),
+]
 
-
-def _mode_to_source(mode: WhatsAppMode) -> str:
-    return "coexistence" if mode == WhatsAppMode.coexistence else "embedded_signup"
-
-
-def _poll_connect_session(
-    client,
-    session_id: str,
-    timeout_seconds: int,
-) -> dict:
-    deadline = time.time() + timeout_seconds
-    while time.time() < deadline:
-        status = client.get_whatsapp_connect_session(session_id)
-        state = status.get("status")
-        if state == "completed":
-            return status
-        if state == "failed":
-            error = status.get("error") or "WhatsApp connect failed"
-            raise UserError(error)
-        time.sleep(POLL_INTERVAL_SECONDS)
-    raise UserError(
-        "Timed out waiting for WhatsApp connect. "
-        "Open the URL again with `aima whatsapp connect` if the session expired."
-    )
+TEMPLATE_PICK_COLUMNS = [
+    ("#", "#"),
+    *TEMPLATE_COLUMNS,
+]
 
 
 @app.command("connect")
@@ -80,32 +58,15 @@ def connect(
 ) -> None:
     """Connect WhatsApp via a browser link (Meta embedded signup / coexistence)."""
     state = get_state(ctx)
-    source = _mode_to_source(mode)
 
     with state.client() as client:
-        session = client.create_whatsapp_connect_session(source)
-
-    connect_url = session["connect_url"]
-    session_id = session["session_id"]
-
-    info("Open this URL in your browser to connect WhatsApp:")
-    info(f"\n{connect_url}\n")
-    info(f"Session expires in {session.get('expires_in_seconds', 1800)} seconds.")
-
-    if not no_browser:
-        webbrowser.open(connect_url)
-
-    if state.json_mode:
-        info("Waiting for connect to complete...")
-    else:
-        info("Waiting for connect to complete (Ctrl+C to stop polling)...")
-
-    try:
-        with state.client() as client:
-            result = _poll_connect_session(client, session_id, timeout)
-    except KeyboardInterrupt:
-        info("\nStopped polling. The connect URL may still work until it expires.")
-        raise typer.Exit(code=130) from None
+        result = run_connect_flow(
+            client,
+            mode,
+            open_browser=not no_browser,
+            timeout=timeout,
+            json_mode=state.json_mode,
+        )
 
     credentials = (result.get("result") or {}).get("whatsapp_credentials") or []
 
@@ -123,7 +84,7 @@ def connect(
     else:
         render_keyvalue(
             {
-                "session_id": session_id,
+                "session_id": result.get("session_id"),
                 "status": result.get("status"),
             },
             title="Connect Session",
@@ -137,9 +98,7 @@ def list_accounts(ctx: typer.Context) -> None:
     with state.client() as client:
         accounts = client.list_whatsapp()
 
-    # Backwards compatibility of headers for WHATSAPP_CREDENTIALS_COLUMNS
     for account in accounts:
-        # backend returns display_phone_number and source, map source if not present
         if "source" not in account:
             account["source"] = account.get("status", "embedded_signup")
 
@@ -150,6 +109,26 @@ def list_accounts(ctx: typer.Context) -> None:
             accounts,
             WHATSAPP_CREDENTIALS_COLUMNS,
             title=f"WhatsApp Credentials ({len(accounts)})",
+        )
+
+
+@app.command("templates")
+def templates(
+    ctx: typer.Context,
+    credentials_id: int = typer.Argument(..., help="WhatsApp credentials ID."),
+) -> None:
+    """List APPROVED message templates for WhatsApp credentials."""
+    state = get_state(ctx)
+    with state.client() as client:
+        items = client.list_whatsapp_templates(credentials_id)
+
+    if state.json_mode:
+        emit_json(items)
+    else:
+        render_table(
+            items,
+            TEMPLATE_COLUMNS,
+            title=f"Templates ({len(items)})",
         )
 
 
