@@ -64,6 +64,20 @@ def create_campaign(
     campaign_type: str = typer.Option(
         None, "--campaign-type", help="voice | whatsapp | hybrid."
     ),
+    whatsapp_credentials_id: int = typer.Option(
+        None, "--whatsapp-credentials-id", help="WhatsApp credentials ID for whatsapp/hybrid."
+    ),
+    template_name: str = typer.Option(
+        None, "--template-name", help="Outbound WhatsApp template name."
+    ),
+    template_language: str = typer.Option(
+        None, "--template-language", help="WhatsApp template language code (default en)."
+    ),
+    inbound_only: bool = typer.Option(
+        False,
+        "--inbound-only",
+        help="Only respond to inbound messages (no outbound template).",
+    ),
     inactive: bool = typer.Option(False, "--inactive", help="Create as inactive."),
     field: list[str] = typer.Option(
         None, "--field", help="Repeatable: 'title:type:description' (':values=a,b' for enum)."
@@ -105,6 +119,16 @@ def create_campaign(
                 f"--campaign-type must be one of {', '.join(sorted(CAMPAIGN_TYPES))}."
             )
         body["campaign_type"] = campaign_type
+    if whatsapp_credentials_id is not None:
+        body["whatsapp_credentials_id"] = whatsapp_credentials_id
+    if template_name is not None:
+        body["template_name"] = template_name
+    if template_language is not None:
+        body["template_language"] = template_language
+    if inbound_only:
+        body["only_respond_to_initiated_conversations"] = True
+    elif body.get("campaign_type") in ("whatsapp", "hybrid") and body.get("template_name"):
+        body["only_respond_to_initiated_conversations"] = False
     if inactive:
         body["is_active"] = False
 

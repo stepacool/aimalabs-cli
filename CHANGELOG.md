@@ -8,6 +8,14 @@ All notable changes to `aimalabs-cli` are documented here. The format follows
 
 ### Added
 
+- `aima onboard` — choose `voice` or `whatsapp` for the guided walkthrough.
+- WhatsApp onboard: connect/reuse credentials, template table picker, outbound test
+  send + poll, or inbound-only fallback when no approved templates exist.
+- `aima whatsapp templates <credentials_id>` — list APPROVED Meta templates.
+- `aima leads initiate <lead_id>` — send a WhatsApp campaign template to a lead.
+- `aima campaigns create` — `--whatsapp-credentials-id`, `--template-name`,
+  `--template-language`, `--inbound-only` for WhatsApp campaigns.
+
 - `aima whatsapp list|connect|validate|delete` — manage WhatsApp Business accounts.
 - `aima whatsapp connect` opens the dashboard embedded-signup flow in the browser
   and polls session status (no local OAuth redirect server).

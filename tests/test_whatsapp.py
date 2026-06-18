@@ -60,7 +60,7 @@ def test_whatsapp_connect_session_flow(configured, runner, httpx_mock, monkeypat
         return True
 
     monkeypatch.setattr("webbrowser.open", mock_webbrowser_open)
-    monkeypatch.setattr("aima.commands.whatsapp.time.sleep", lambda _seconds: None)
+    monkeypatch.setattr("aima.commands.whatsapp_connect.time.sleep", lambda _seconds: None)
 
     result = runner.invoke(app, ["--json", "whatsapp", "connect", "embedded"])
 
@@ -95,7 +95,7 @@ def test_whatsapp_connect_coexistence_source(configured, runner, httpx_mock, mon
     )
 
     monkeypatch.setattr("webbrowser.open", lambda _url: True)
-    monkeypatch.setattr("aima.commands.whatsapp.time.sleep", lambda _seconds: None)
+    monkeypatch.setattr("aima.commands.whatsapp_connect.time.sleep", lambda _seconds: None)
 
     result = runner.invoke(app, ["--json", "whatsapp", "connect", "coexistence"])
 

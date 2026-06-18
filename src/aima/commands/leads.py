@@ -9,7 +9,7 @@ import typer
 
 from ..context import get_state
 from ..errors import UserError
-from ..output import emit_json, info, render_table
+from ..output import emit_json, info, render_keyvalue, render_table
 from ..parsing import parse_lead_spec, parse_map_spec, read_file_or_stdin
 
 app = typer.Typer(help="Add test leads or bulk-upload from CSV.", no_args_is_help=True)
@@ -86,6 +86,32 @@ def upload_csv(
         from ..output import success
 
         success(f"Created {created} of {total} rows.")
+
+
+@app.command("initiate")
+def initiate(
+    ctx: typer.Context,
+    lead_id: int = typer.Argument(..., help="Lead id to send the campaign template to."),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip the confirmation prompt."),
+) -> None:
+    """Send the campaign's WhatsApp template to a lead (outbound WhatsApp campaigns only)."""
+    state = get_state(ctx)
+    if not yes:
+        if state.json_mode:
+            raise UserError(
+                f"Refusing to initiate lead {lead_id} non-interactively. Pass --yes to confirm."
+            )
+        if not typer.confirm(f"Send WhatsApp template to lead {lead_id}?", default=False):
+            raise typer.Exit(code=0)
+
+    with state.client() as client:
+        result = client.initiate_lead(lead_id)
+
+    if state.json_mode:
+        emit_json(result)
+    else:
+        render_keyvalue(result, title="Initiated")
+        info(f"Watch status with: aima calls status {lead_id} --poll")
 
 
 def _count_data_rows(content: str) -> int:
