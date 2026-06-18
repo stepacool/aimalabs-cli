@@ -185,6 +185,9 @@ class AimaClient:
     def lead_status(self, lead_id: int) -> dict:
         return self._request("GET", f"/api/cli/leads/{lead_id}/status")
 
+    def get_usage(self) -> dict:
+        return self._request("GET", "/api/cli/usage")
+
     def get_whatsapp_config(self) -> dict:
         return self._request("GET", "/api/cli/whatsapp/config")
 
@@ -215,3 +218,25 @@ class AimaClient:
 
     def initiate_lead(self, lead_id: int) -> dict:
         return self._request("POST", f"/api/cli/leads/{lead_id}/initiate")
+
+    def list_phones(self, *, limit: int | None = None) -> list[dict]:
+        params: dict[str, Any] = {}
+        if limit is not None:
+            params["limit"] = limit
+        return self._request("GET", "/api/cli/phones", params=params) or []
+
+    def list_available_phones(self, *, limit: int | None = None) -> list[dict]:
+        params: dict[str, Any] = {}
+        if limit is not None:
+            params["limit"] = limit
+        return self._request("GET", "/api/cli/phones/available", params=params) or []
+
+    def rent_phone(self, phone_number_id: int) -> dict:
+        return self._request(
+            "POST",
+            "/api/cli/phones/rent",
+            json={"phone_number_id": phone_number_id},
+        )
+
+    def release_phone(self, assignment_id: int) -> dict:
+        return self._request("DELETE", f"/api/cli/phones/{assignment_id}")
