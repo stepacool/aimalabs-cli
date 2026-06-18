@@ -30,7 +30,7 @@ File: `~/.aima/config.json`, mode `0600`.
 ```json
 {
   "base_url": "https://api.aimalabs.io",
-  "api_key":  "api_..."
+  "api_key": "api_..."
 }
 ```
 
@@ -62,27 +62,27 @@ Each `[composite, client-side]` row is a CLI-only orchestration; everything else
 
 ### Initial setup
 
-| Command | Maps to | Notes |
-|---|---|---|
-| `aima init` | `[composite, client-side]` | Interactive first-run wizard. Prompts for `api_key`, optionally `base_url`. Validates by calling `GET /api/cli/voices`. Writes `~/.aima/config.json` with `chmod 600`. Idempotent — re-running asks whether to overwrite. |
-| `aima config show` | local | Prints config with `api_key` masked as `api_…<last 4>`. Honors `--json`. |
-| `aima config set <key> <value>` | local | One of `base_url`, `api_key`. |
-| `aima config clear` | local | Confirms, then deletes `~/.aima/config.json`. |
-| `aima status` | `[composite]` | Prints `aima config show` + result of `GET /api/cli/voices` (just "ok" or the error). Probe that the key still works. |
+| Command                         | Maps to                    | Notes                                                                                                                                                                                                                     |
+| ------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `aima init`                     | `[composite, client-side]` | Interactive first-run wizard. Prompts for `api_key`, optionally `base_url`. Validates by calling `GET /api/cli/voices`. Writes `~/.aima/config.json` with `chmod 600`. Idempotent — re-running asks whether to overwrite. |
+| `aima config show`              | local                      | Prints config with `api_key` masked as `api_…<last 4>`. Honors `--json`.                                                                                                                                                  |
+| `aima config set <key> <value>` | local                      | One of `base_url`, `api_key`.                                                                                                                                                                                             |
+| `aima config clear`             | local                      | Confirms, then deletes `~/.aima/config.json`.                                                                                                                                                                             |
+| `aima status`                   | `[composite]`              | Prints `aima config show` + result of `GET /api/cli/voices` (just "ok" or the error). Probe that the key still works.                                                                                                     |
 
 ### Voices
 
-| Command | Maps to |
-|---|---|
+| Command                                                                            | Maps to                                                |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------ |
 | `aima voices list [--language LANG] [--provider P] [--voice-type T] [--no-active]` | `GET /api/cli/voices` with corresponding query params. |
 
 `--no-active` sends `is_active=false`. By default `is_active=true` is sent. To list both, omit the flag entirely (the CLI can do this by not sending `is_active` at all — the backend treats omission and `true` the same, so this is a quirk; document it as "default shows active only").
 
 ### Campaigns
 
-| Command | Maps to |
-|---|---|
-| `aima campaigns list [--active] [--inactive] [--limit N]` | `GET /api/cli/campaigns` |
+| Command                                                                                                                                                                                                                                                           | Maps to                   |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| `aima campaigns list [--active] [--inactive] [--limit N]`                                                                                                                                                                                                         | `GET /api/cli/campaigns`  |
 | `aima campaigns create --title T --company-name C [--voice-id V] [--agent-name N] [--language L] [--system-prompt PATH-OR-STRING] [--extra-context PATH-OR-STRING] [--campaign-type voice\|whatsapp\|hybrid] [--whatsapp-credentials-id ID] [--template-name NAME] [--template-language LANG] [--inbound-only] [--field title:type:description] [--from-yaml FILE]` | `POST /api/cli/campaigns` |
 
 - `--active` sends `is_active=true`; `--inactive` sends `is_active=false`; omit both to return both. They are mutually exclusive.
@@ -91,56 +91,135 @@ Each `[composite, client-side]` row is a CLI-only orchestration; everything else
 - `--from-yaml` reads a YAML file with the full request body (see [CampaignCreateRequest](#post-apiclicampaigns)). Mutually exclusive with explicit flags except `--title` (which still wins if both are present).
 - `--system-prompt` and `--extra-context` accept either a literal string or an `@path/to/file` to read the contents from disk.
 
+**WhatsApp / hybrid flags** (see [CampaignCreateRequest](#post-apiclicampaigns) for server validation):
+
+| Flag | API field | Notes |
+| ---- | --------- | ----- |
+| `--campaign-type whatsapp` | `campaign_type` | Pure messaging campaign; no voice dispatch. |
+| `--campaign-type hybrid` | `campaign_type` | Supports both voice calls and WhatsApp on the same campaign. |
+| `--whatsapp-credentials-id ID` | `whatsapp_credentials_id` | **Required** when `campaign_type` is `whatsapp` or `hybrid`. Must belong to the authenticated customer. |
+| `--template-name NAME` | `template_name` | **Required** for outbound WhatsApp (when not `--inbound-only`). Must be an APPROVED template name from Meta — list with `aima whatsapp templates <credentials_id>`. |
+| `--template-language LANG` | `template_language` | BCP-47 / Meta language code; defaults to `en` on the server. Must match the template variant you selected. |
+| `--inbound-only` | `only_respond_to_initiated_conversations=true` | Agent replies only when the lead messages first. **Mutually exclusive** with `--template-name`. |
+
+Outbound example:
+
+```bash
+aima campaigns create \
+  --title "WA outbound — demo invites" \
+  --company-name "Acme Corp" \
+  --campaign-type whatsapp \
+  --whatsapp-credentials-id 12 \
+  --template-name hello_world \
+  --template-language en
+```
+
+Inbound-only example:
+
+```bash
+aima campaigns create \
+  --title "WA inbound — support line" \
+  --company-name "Acme Corp" \
+  --campaign-type whatsapp \
+  --whatsapp-credentials-id 12 \
+  --inbound-only
+```
+
 ### Leads
 
-| Command | Maps to |
-|---|---|
-| `aima leads add-test --campaign-id ID --lead NAME:E164 [--lead ...]` | `POST /api/cli/campaigns/{campaign_id}/test-leads` |
-| `aima leads initiate <lead_id> [--yes]` | `POST /api/cli/leads/{lead_id}/initiate` — WhatsApp template send. |
+| Command                                                                                                   | Maps to                                                                                                                      |
+| --------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `aima leads add-test --campaign-id ID --lead NAME:E164 [--lead ...]`                                      | `POST /api/cli/campaigns/{campaign_id}/test-leads`                                                                           |
+| `aima leads initiate <lead_id> [--yes]`                                                                   | `POST /api/cli/leads/{lead_id}/initiate` — send the campaign's WhatsApp template to one lead.                                |
 | `aima leads upload-csv --campaign-id ID --file PATH --name-col COL --phone-col COL [--map FIELD=COL ...]` | `POST /api/cli/campaigns/{campaign_id}/leads/csv` (reads the file locally, posts its contents as JSON-bodied `csv_content`). |
 
 - For `add-test`, repeat `--lead Name:+11234567890` per lead. The backend strips a leading `+` before persisting — the CLI can either pass the number through unchanged or strip it client-side; the server is tolerant.
 - For `upload-csv` with `--file -`, read stdin.
 - `--map FIELD=COL` is repeatable; it maps a `desired_field` title to a CSV column. The `--name-col` and `--phone-col` flags fill in the two required mapping keys.
+- `leads initiate` is for **outbound WhatsApp only**: the campaign must have `template_name` set and `only_respond_to_initiated_conversations=false`. Consumes WhatsApp lead quota under billing. **Confirm interactively unless `--yes`.** After send, poll with `aima calls status <lead_id> --poll` and watch `latest_conversation`.
 
-### WhatsApp
+### WhatsApp credentials
 
-| Command | Maps to |
-|---|---|
-| `aima whatsapp connect embedded\|coexistence [--no-browser] [--timeout SEC]` | `POST /api/cli/whatsapp/connect-sessions` + poll session status |
-| `aima whatsapp list` | `GET /api/cli/whatsapp` |
-| `aima whatsapp templates <credentials_id>` | `GET /api/cli/whatsapp/{credentials_id}/templates` |
-| `aima whatsapp validate <credentials_id>` | `POST /api/cli/whatsapp/{credentials_id}/validate` |
-| `aima whatsapp delete <credentials_id> [--yes]` | `DELETE /api/cli/whatsapp/{credentials_id}` |
+| Command                                                                                    | Maps to                                                                                         |
+| ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| `aima whatsapp connect embedded\|coexistence [--no-browser] [--timeout SEC]`               | `POST /api/cli/whatsapp/connect-sessions` + poll `GET …/connect-sessions/{session_id}`          |
+| `aima whatsapp list`                                                                       | `GET /api/cli/whatsapp`                                                                         |
+| `aima whatsapp templates <credentials_id>`                                                 | `GET /api/cli/whatsapp/{credentials_id}/templates`                                              |
+| `aima whatsapp validate <credentials_id>`                                                  | `POST /api/cli/whatsapp/{credentials_id}/validate`                                              |
+| `aima whatsapp delete <credentials_id> [--yes]`                                            | `DELETE /api/cli/whatsapp/{credentials_id}`                                                     |
+
+**Connect flow (embedded signup / coexistence):**
+
+1. CLI calls `POST /api/cli/whatsapp/connect-sessions` with `source` = `embedded_signup` or `coexistence`.
+2. Server returns `connect_url` pointing at `{DASHBOARD_URL}/connect/whatsapp/{session_id}` (Redis-backed session, **30 minute TTL**).
+3. CLI prints the URL and opens the system browser unless `--no-browser`.
+4. User completes Meta **FB JS SDK** embedded signup on the hosted dashboard page (not a localhost OAuth redirect).
+5. Dashboard posts the OAuth result back to the backend; session status becomes `completed` with `result.whatsapp_credentials`.
+6. CLI polls every ~3s until `completed`, `failed`, or `--timeout` (default 1800s).
+
+`embedded` = new WhatsApp Business API number via embedded signup. `coexistence` = link an existing WhatsApp Business app account.
+
+After connect, run `aima whatsapp validate <id>` before creating campaigns — validation performs live API probes against Meta.
 
 ### Calls and status
 
-| Command | Maps to |
-|---|---|
-| `aima calls dispatch <lead_id>` | `POST /api/cli/leads/{lead_id}/dispatch` — places a real outbound call. **Confirm interactively unless `--yes`.** |
-| `aima calls status <lead_id> [--poll] [--poll-interval 20] [--poll-timeout 300]` | `GET /api/cli/leads/{lead_id}/status` once; with `--poll`, refetch every `--poll-interval` seconds until `latest_call.ended_at` is set or `--poll-timeout` elapses. |
+| Command                                                                          | Maps to                                                                                                                                                             |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `aima calls dispatch <lead_id>`                                                  | `POST /api/cli/leads/{lead_id}/dispatch` — places a real outbound call. **Confirm interactively unless `--yes`.**                                                   |
+| `aima calls status <lead_id> [--poll] [--poll-interval 20] [--poll-timeout 300]` | `GET /api/cli/leads/{lead_id}/status` once; with `--poll`, refetch every `--poll-interval` seconds until terminal (see below). |
+
+**Polling semantics:**
+
+- **Voice:** terminate when `latest_call.ended_at` is set (or `--poll-timeout` elapses).
+- **WhatsApp:** terminate when `latest_conversation.latest_message_status` is `sent` or `delivered`, or when `latest_conversation.status` advances past `not_started` / `failed_to_start`. The onboard flow uses a 5-minute poll window with 20s interval.
 
 ### Phone numbers
 
-| Command | Maps to |
-|---|---|
-| `aima phones list [--limit N]` | `GET /api/cli/phones` |
-| `aima phones available [--limit N]` | `GET /api/cli/phones/available` |
-| `aima phones rent <phone_number_id> [--yes]` | `POST /api/cli/phones/rent` — rents from platform inventory. **Confirm interactively unless `--yes`.** |
-| `aima phones release <assignment_id> [--yes]` | `DELETE /api/cli/phones/{assignment_id}` — returns number to available pool. **Confirm interactively unless `--yes`.** |
+| Command                                          | Maps to                                                                                          |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `aima phones list [--limit N]`                   | `GET /api/cli/phones`                                                                            |
+| `aima phones available [--limit N]`              | `GET /api/cli/phones/available`                                                                  |
+| `aima phones rent <phone_number_id> [--yes]`     | `POST /api/cli/phones/rent` — rents from platform inventory. **Confirm interactively unless `--yes`.** |
+| `aima phones release <assignment_id> [--yes]`    | `DELETE /api/cli/phones/{assignment_id}` — returns number to available pool. **Confirm interactively unless `--yes`.** |
 
 - Use `phones available` to find a `phone_number_id`, then `phones rent <id>`. After rent, `phones list` shows the `assignment_id` needed for release.
 - Numbers must already exist in platform inventory (the CLI does not search or purchase from carriers).
 
+### Usage (balance)
+
+| Command           | Maps to                                                                                          |
+| ----------------- | ------------------------------------------------------------------------------------------------ |
+| `aima usage view` | `GET /api/cli/usage` — current-month voice minutes and WhatsApp leads as `used` / `total` pairs. |
+
 ### Composite onboarding
 
-`aima onboard` — prompts for `voice` or `whatsapp`. Cannot run in `--json` mode.
+`aima onboard` — interactive walkthrough. **Cannot run in `--json` mode** (requires prompts). At the top level, prompts for channel: `voice` or `whatsapp`.
 
-**Voice:** init → voices → campaign → test lead → gated `calls dispatch` → poll `latest_call.ended_at`.
+Apply a **minimal-confirmation policy**: only prompt explicitly before `calls dispatch`, `leads initiate`, and CSV uploads with >50 rows. Everything else proceeds with sensible defaults.
 
-**WhatsApp:** credentials → validate → template list (pick #, or `0` for inbound-only) → campaign → optional test lead → gated `leads initiate` → poll `latest_conversation`.
+#### Voice path
 
-Minimal-confirmation: only voice `calls dispatch`, WhatsApp template send, and CSV >50 rows are gated.
+1. Ensure config exists (`aima init` if missing).
+2. List voices; user picks `selected_voice_id`.
+3. Prompt for campaign title, company name, optional system prompt, optional extraction fields.
+4. `POST /api/cli/campaigns` with `campaign_type=voice`.
+5. Add one test lead (`POST …/test-leads`).
+6. **Gated:** confirm, then `POST /api/cli/leads/{id}/dispatch`.
+7. Poll `GET /api/cli/leads/{id}/status` until `latest_call.ended_at` is set; print transcript/summary.
+
+#### WhatsApp path
+
+1. **Credentials** — list existing accounts (`GET /api/cli/whatsapp`). User may reuse an `id` or start browser connect (`embedded` / `coexistence` as above).
+2. **Validate** — `POST /api/cli/whatsapp/{id}/validate`.
+3. **Template mode** — fetch APPROVED templates (`GET …/templates`). Render a numbered table with a `#` column:
+   - Enter **`1..N`** to pick an outbound template (`name` + `language` stored on the campaign).
+   - Enter **`0`** for **inbound-only** even when templates exist (`only_respond_to_initiated_conversations=true`, no `template_name`).
+   - If **no** approved templates: warn and offer inbound-only fallback; otherwise exit with guidance to create templates in Meta Business Manager.
+4. **Campaign** — prompt title, company name, optional system prompt and fields; `POST /api/cli/campaigns` with `campaign_type=whatsapp`.
+5. **Inbound-only done** — print the connected `display_phone_number` and instruct the user to message that number from WhatsApp to test.
+6. **Outbound continuation** — add test lead, **gated** `leads initiate`, poll `latest_conversation` for up to 5 minutes.
+
+Template table columns (CLI): `#`, `name`, `language`, `status`, `category`.
 
 ## Output and formatting
 
@@ -198,6 +277,14 @@ CallStatus:
 HangupCause:
   no_lead_id, dispatch_error, session_ended,
   sip_error, session_error
+
+ConversationStatus:
+  not_started, failed_to_start, active, no_response,
+  complete, qualified, disqualified, active_silent,
+  no_response_final, human_needed
+
+MessageStatus:
+  pending, sent, delivered, read, failed
 ```
 
 ### Shared object: `Value`
@@ -216,12 +303,12 @@ List voices visible to the authenticated customer (system voices + the customer'
 
 **Query params** (all optional):
 
-| Name | Type | Default | Notes |
-|---|---|---|---|
-| `language` | `string` | — | ISO-639-1 code, e.g. `en`, `es`. |
-| `voice_type` | `VoiceType` | — | `per_customer` or `generic`. |
-| `provider` | `VoiceProvider` | — | One of the enum values above. |
-| `is_active` | `bool` | `true` | Pass `false` to list inactive voices. |
+| Name         | Type            | Default | Notes                                 |
+| ------------ | --------------- | ------- | ------------------------------------- |
+| `language`   | `string`        | —       | ISO-639-1 code, e.g. `en`, `es`.      |
+| `voice_type` | `VoiceType`     | —       | `per_customer` or `generic`.          |
+| `provider`   | `VoiceProvider` | —       | One of the enum values above.         |
+| `is_active`  | `bool`          | `true`  | Pass `false` to list inactive voices. |
 
 **Response: `200 OK` → `VoiceOut[]`** (capped at 100):
 
@@ -250,10 +337,10 @@ List campaigns owned by the authenticated customer. Newest first.
 
 **Query params** (all optional):
 
-| Name | Type | Default | Notes |
-|---|---|---|---|
-| `is_active` | `bool` | — | Omit to return both active and inactive. |
-| `limit` | `int` | `100` | Range `1..200`. |
+| Name        | Type   | Default | Notes                                    |
+| ----------- | ------ | ------- | ---------------------------------------- |
+| `is_active` | `bool` | —       | Omit to return both active and inactive. |
+| `limit`     | `int`  | `100`   | Range `1..200`.                          |
 
 **Response: `200 OK` → `CampaignListItem[]`:**
 
@@ -312,36 +399,36 @@ Create a campaign together with its agent and its extraction fields in one atomi
 
 Field-by-field:
 
-| Field | Type | Required | Default | Notes |
-|---|---|---|---|---|
-| `title` | `string` | yes | — | Human-readable campaign name. |
-| `company_name` | `string` | yes | — | Used inside agent prompts. |
-| `agent_name` | `string` | no | `"Stefan"` | Display name the agent introduces itself with. |
-| `selected_voice_id` | `int \| null` | no | `null` | Required in practice for `campaign_type=voice` — pick from `GET /voices`. |
-| `system_prompt` | `string \| null` | no | `null` | Overrides the default agent prompt. |
-| `extra_context` | `string \| null` | no | `null` | Free-form context appended to the prompt. |
-| `language` | `string` | no | `"en"` | ISO-639-1. |
-| `campaign_type` | `CampaignType` | no | `"voice"` | `voice` for outbound dialer, `whatsapp` or `hybrid` for messaging. |
-| `whatsapp_credentials_id` | `int \| null` | conditional | `null` | Required when `campaign_type` is `whatsapp` or `hybrid`. |
-| `template_name` | `string \| null` | conditional | `null` | Required for outbound WhatsApp (`only_respond_to_initiated_conversations=false`). |
-| `template_language` | `string \| null` | no | `"en"` | Template language code. |
-| `template_kwargs` | `object \| null` | no | `null` | Template variable substitutions. |
-| `only_respond_to_initiated_conversations` | `bool` | no | `false` | `true` for inbound-only (no template). Mutually exclusive with `template_name`. |
-| `is_active` | `bool` | no | `true` | If `false`, the campaign won't dispatch automatically. |
-| `desired_fields` | `DesiredFieldInput[]` | no | `[]` | See below. |
+| Field                                     | Type                  | Required    | Default    | Notes                                                                             |
+| ----------------------------------------- | --------------------- | ----------- | ---------- | --------------------------------------------------------------------------------- |
+| `title`                                   | `string`              | yes         | —          | Human-readable campaign name.                                                     |
+| `company_name`                            | `string`              | yes         | —          | Used inside agent prompts.                                                        |
+| `agent_name`                              | `string`              | no          | `"Stefan"` | Display name the agent introduces itself with.                                    |
+| `selected_voice_id`                       | `int \| null`         | no          | `null`     | Required in practice for `campaign_type=voice` — pick from `GET /voices`.         |
+| `system_prompt`                           | `string \| null`      | no          | `null`     | Overrides the default agent prompt.                                               |
+| `extra_context`                           | `string \| null`      | no          | `null`     | Free-form context appended to the prompt.                                         |
+| `language`                                | `string`              | no          | `"en"`     | ISO-639-1.                                                                        |
+| `campaign_type`                           | `CampaignType`        | no          | `"voice"`  | `voice` for outbound dialer, `whatsapp` or `hybrid` for messaging.                |
+| `whatsapp_credentials_id`                 | `int \| null`         | conditional | `null`     | Required when `campaign_type` is `whatsapp` or `hybrid`.                          |
+| `template_name`                           | `string \| null`      | conditional | `null`     | Required for outbound WhatsApp (`only_respond_to_initiated_conversations=false`). |
+| `template_language`                       | `string \| null`      | no          | `"en"`     | Template language code.                                                           |
+| `template_kwargs`                         | `object \| null`      | no          | `null`     | Template variable substitutions.                                                  |
+| `only_respond_to_initiated_conversations` | `bool`                | no          | `false`    | `true` for inbound-only (no template). Mutually exclusive with `template_name`.   |
+| `is_active`                               | `bool`                | no          | `true`     | If `false`, the campaign won't dispatch automatically.                            |
+| `desired_fields`                          | `DesiredFieldInput[]` | no          | `[]`       | See below.                                                                        |
 
 **`DesiredFieldInput`:**
 
-| Field | Type | Required | Default | Notes |
-|---|---|---|---|---|
-| `title` | `string` | yes | — | Short snake_case label, e.g. `budget` or `meeting_time`. |
-| `description` | `string` | yes | — | Plain-language instruction for the agent on how to obtain this value. |
-| `type` | `FieldType` | no | `"string"` | See enum. |
-| `is_required` | `bool` | no | `false` | If true, the agent will keep asking until extracted. |
-| `interaction_type` | `FieldInteractionType` | no | `"always_ask"` | |
-| `use_calendar` | `bool` | no | `false` | For `calendar_appointment` fields. |
-| `order` | `int` | no | `1` | Display order. |
-| `meta` | `object \| null` | no | `null` | For `type="enum"` this **must** be `{"values": ["a", "b", ...]}` — server rejects otherwise. |
+| Field              | Type                   | Required | Default        | Notes                                                                                        |
+| ------------------ | ---------------------- | -------- | -------------- | -------------------------------------------------------------------------------------------- |
+| `title`            | `string`               | yes      | —              | Short snake_case label, e.g. `budget` or `meeting_time`.                                     |
+| `description`      | `string`               | yes      | —              | Plain-language instruction for the agent on how to obtain this value.                        |
+| `type`             | `FieldType`            | no       | `"string"`     | See enum.                                                                                    |
+| `is_required`      | `bool`                 | no       | `false`        | If true, the agent will keep asking until extracted.                                         |
+| `interaction_type` | `FieldInteractionType` | no       | `"always_ask"` |                                                                                              |
+| `use_calendar`     | `bool`                 | no       | `false`        | For `calendar_appointment` fields.                                                           |
+| `order`            | `int`                  | no       | `1`            | Display order.                                                                               |
+| `meta`             | `object \| null`       | no       | `null`         | For `type="enum"` this **must** be `{"values": ["a", "b", ...]}` — server rejects otherwise. |
 
 **Response: `200 OK` → `CampaignCreated`:**
 
@@ -356,6 +443,43 @@ Field-by-field:
 ```
 
 `agent_id` may be `null` in degenerate cases; treat it as informational.
+
+**WhatsApp validation rules** (server-side, `422` on violation):
+
+| Rule | Detail |
+| ---- | ------ |
+| Credentials required | `whatsapp_credentials_id` must be set when `campaign_type` ∈ `{whatsapp, hybrid}`. |
+| Credentials ownership | ID must exist and belong to the authenticated customer (`404` if not). |
+| Outbound template | When `only_respond_to_initiated_conversations=false`, `template_name` is **required**. |
+| Inbound-only | When `only_respond_to_initiated_conversations=true`, `template_name` must be **absent** (mutually exclusive). |
+
+**Example — outbound WhatsApp campaign:**
+
+```json
+{
+  "title": "WA outbound — demo invites",
+  "company_name": "Acme Corp",
+  "campaign_type": "whatsapp",
+  "whatsapp_credentials_id": 12,
+  "template_name": "hello_world",
+  "template_language": "en",
+  "only_respond_to_initiated_conversations": false,
+  "desired_fields": []
+}
+```
+
+**Example — inbound-only WhatsApp campaign:**
+
+```json
+{
+  "title": "WA inbound — support line",
+  "company_name": "Acme Corp",
+  "campaign_type": "whatsapp",
+  "whatsapp_credentials_id": 12,
+  "only_respond_to_initiated_conversations": true,
+  "desired_fields": []
+}
+```
 
 ---
 
@@ -376,10 +500,10 @@ Add one or more test leads to a campaign. Does not dispatch.
 }
 ```
 
-| Field | Type | Required | Notes |
-|---|---|---|---|
-| `leads[].name` | `string` | yes | Display name shown to the agent during the call. Leading/trailing whitespace is stripped server-side. |
-| `leads[].phone_number` | `string` | yes | E.164. The leading `+` is stripped server-side; either form is accepted. |
+| Field                  | Type     | Required | Notes                                                                                                 |
+| ---------------------- | -------- | -------- | ----------------------------------------------------------------------------------------------------- |
+| `leads[].name`         | `string` | yes      | Display name shown to the agent during the call. Leading/trailing whitespace is stripped server-side. |
+| `leads[].phone_number` | `string` | yes      | E.164. The leading `+` is stripped server-side; either form is accepted.                              |
 
 **Response: `200 OK` → `LeadOut[]`** (one per created lead, in order):
 
@@ -413,12 +537,12 @@ Bulk-create leads from a CSV. The CLI reads the file locally and posts its conte
 }
 ```
 
-| Field | Type | Required | Notes |
-|---|---|---|---|
-| `csv_content` | `string` | yes | Raw CSV text including the header row. |
-| `mapping.name` | `string` | yes | CSV column name holding the lead's display name. |
-| `mapping.phone_number` | `string` | yes | CSV column name holding the phone number. |
-| `mapping.values` | `object<string,string>` | no | `desired_field_title → csv_column_name`. Empty if the CSV only has name+phone. |
+| Field                  | Type                    | Required | Notes                                                                          |
+| ---------------------- | ----------------------- | -------- | ------------------------------------------------------------------------------ |
+| `csv_content`          | `string`                | yes      | Raw CSV text including the header row.                                         |
+| `mapping.name`         | `string`                | yes      | CSV column name holding the lead's display name.                               |
+| `mapping.phone_number` | `string`                | yes      | CSV column name holding the phone number.                                      |
+| `mapping.values`       | `object<string,string>` | no       | `desired_field_title → csv_column_name`. Empty if the CSV only has name+phone. |
 
 Rows missing the mapped name/phone columns will still be created with empty strings for the missing values; rows with missing `values[*]` columns are silently skipped for that single value.
 
@@ -463,9 +587,7 @@ Fetch the latest call (if any) plus any extracted field values for a lead.
   "lead_id": 501,
   "name": "Jane Doe",
   "phone_number": "15551234567",
-  "values": [
-    { "key": "budget", "value": "$500/month" }
-  ],
+  "values": [{ "key": "budget", "value": "$500/month" }],
   "latest_call": {
     "call_id": 9001,
     "status": "completed",
@@ -480,8 +602,8 @@ Fetch the latest call (if any) plus any extracted field values for a lead.
   "latest_conversation": {
     "conversation_id": 77,
     "status": "no_response",
-    "latest_message_status": "delivered",
-    "latest_message_at": "2026-05-31T14:26:10"
+    "latest_message_status": "sent",
+    "latest_message_at": "2026-05-31T14:22:01"
   }
 }
 ```
@@ -497,25 +619,181 @@ Fetch the latest call (if any) plus any extracted field values for a lead.
 
 ### `POST /api/cli/leads/{lead_id}/initiate`
 
-Send the campaign's WhatsApp template to a lead (outbound WhatsApp/hybrid only).
+Send the campaign's configured WhatsApp **template message** to a single lead. This is the programmatic equivalent of the first outbound touch in a WhatsApp campaign — it creates (or continues) a conversation and bills against `whatsapp_leads` quota.
+
+**Path param:** `lead_id: int` (must belong to a campaign owned by the customer; `404` otherwise).
+
+**Request body:** none (empty `POST`). Template name, language, and kwargs come from the campaign configuration.
+
+**Preconditions** (all return `422` if unmet):
+
+- Lead's campaign `campaign_type` must be `whatsapp` or `hybrid`.
+- Campaign must have `template_name` set (outbound configuration).
+- Campaign must **not** be inbound-only (`only_respond_to_initiated_conversations=true`).
+
+**Side effects:**
+
+- Runs `initiate_conversation` under a billing session (`UsageService.whatsapp_agent`, metadata `kind=lead_initiation`).
+- Creates assistant message with template content via WhatsApp Cloud API.
 
 **Response: `200 OK` → `LeadInitiateResult`:**
 
 ```json
-{ "lead_id": 501, "conversation_id": 77, "message_status": "sent", "conversation_status": "no_response" }
+{
+  "lead_id": 501,
+  "conversation_id": 77,
+  "message_status": "sent",
+  "conversation_status": "no_response"
+}
 ```
+
+| Field                 | Type            | Notes                                                                 |
+| --------------------- | --------------- | --------------------------------------------------------------------- |
+| `lead_id`             | `int`           | Echo of the path param.                                               |
+| `conversation_id`     | `int \| null`   | New or existing conversation for this lead.                           |
+| `message_status`      | `string \| null`| Latest **assistant** message delivery status (`MessageStatus` enum).  |
+| `conversation_status` | `string \| null`| Conversation lifecycle status (`ConversationStatus` enum).            |
+
+**Errors:**
+
+| Code | When |
+| ---- | ---- |
+| `404` | Lead or campaign not found / wrong tenant. |
+| `422` | Not a WhatsApp campaign, or no template configured. |
+| `502` | Template send appeared to succeed but no conversation was persisted. |
+
+Idempotency is **not** guaranteed — repeated calls may send multiple template messages. The CLI must confirm unless `--yes`.
 
 ---
 
 ### `GET /api/cli/whatsapp/{credentials_id}/templates`
 
-List **APPROVED** message templates for owned credentials.
+List **APPROVED** message templates for WhatsApp credentials owned by the authenticated customer. Calls Meta's template API using the stored access token; only templates with `status == "APPROVED"` are returned (pending/rejected templates are filtered out).
+
+**Path param:** `credentials_id: int` (`404` if missing or wrong tenant).
 
 **Response: `200 OK` → `WhatsAppTemplateItem[]`:**
 
 ```json
-[{ "name": "hello_world", "language": "en", "status": "APPROVED", "category": "MARKETING" }]
+[
+  {
+    "name": "hello_world",
+    "language": "en",
+    "status": "APPROVED",
+    "category": "MARKETING"
+  },
+  {
+    "name": "appointment_reminder",
+    "language": "en_US",
+    "status": "APPROVED",
+    "category": "UTILITY"
+  }
+]
 ```
+
+| Field      | Type            | Notes                                      |
+| ---------- | --------------- | ------------------------------------------ |
+| `name`     | `string`        | Template name passed to `template_name`.   |
+| `language` | `string`        | Language code for `template_language`.     |
+| `status`   | `string`        | Always `APPROVED` in this response.        |
+| `category` | `string \| null`| Meta category, e.g. `MARKETING`, `UTILITY`. |
+
+**Errors:** `400` when Meta API call fails (detail contains WhatsApp error message).
+
+---
+
+### `POST /api/cli/whatsapp/connect-sessions`
+
+Create a one-time browser connect session for CLI embedded signup or coexistence.
+
+**Request body:**
+
+```json
+{ "source": "embedded_signup" }
+```
+
+`source` ∈ `embedded_signup` | `coexistence`.
+
+**Response: `200 OK` → `ConnectSessionResponse`:**
+
+```json
+{
+  "session_id": "550e8400-e29b-41d4-a716-446655440000",
+  "connect_url": "https://app.aimalabs.io/connect/whatsapp/550e8400-e29b-41d4-a716-446655440000",
+  "source": "embedded_signup",
+  "status": "pending",
+  "expires_in_seconds": 1800
+}
+```
+
+**Errors:** `503` when `DASHBOARD_URL` or Facebook app config is missing on the server.
+
+---
+
+### `GET /api/cli/whatsapp/connect-sessions/{session_id}`
+
+Poll connect session status (Redis-backed, same TTL as create).
+
+**Response: `200 OK` → `ConnectSessionStatusResponse`:**
+
+```json
+{
+  "session_id": "550e8400-e29b-41d4-a716-446655440000",
+  "source": "embedded_signup",
+  "status": "completed",
+  "error": null,
+  "result": {
+    "whatsapp_credentials": [
+      {
+        "id": 12,
+        "title": "Acme WA",
+        "display_phone_number": "+15551234567",
+        "source": "embedded_signup"
+      }
+    ]
+  }
+}
+```
+
+`status` ∈ `pending` | `completed` | `failed`. On `failed`, `error` is a human-readable string.
+
+---
+
+### `GET /api/cli/whatsapp`
+
+List all WhatsApp credentials for the authenticated customer.
+
+**Response: `200 OK` → `WhatsAppCredentialsListResponse[]`:**
+
+```json
+[
+  {
+    "id": 12,
+    "title": "Acme WA",
+    "whatsapp_business_account_id": "123456789",
+    "whatsapp_business_phone_number_id": "987654321",
+    "whatsapp_business_app_id": "111222333",
+    "display_phone_number": "+15551234567",
+    "source": "embedded_signup"
+  }
+]
+```
+
+---
+
+### `POST /api/cli/whatsapp/{credentials_id}/validate`
+
+Validate credentials by performing live WhatsApp Business API checks.
+
+**Response: `200 OK` → `ValidationResponse`** (shape matches admin validate endpoint — includes `valid: bool` and diagnostic fields).
+
+---
+
+### `DELETE /api/cli/whatsapp/{credentials_id}`
+
+Delete a credentials record.
+
+**Response: `200 OK` → `{ "ok": true }`**
 
 ---
 
@@ -606,6 +884,30 @@ Release a rented phone number. Returns the number to `available` status.
 ```
 
 **Errors:** `400` if the assignment is not `active`.
+
+---
+
+### `GET /api/cli/usage`
+
+Return billing allowance for the authenticated customer as **used / total** pairs for the current UTC month.
+
+**Response: `200 OK` → `UsageOut`:**
+
+```json
+{
+  "voice_minutes": { "used": 17.3, "total": 59.8 },
+  "whatsapp_leads": { "used": 12.0, "total": 250.0 }
+}
+```
+
+| Field                  | Type    | Notes                                                                                           |
+| ---------------------- | ------- | ----------------------------------------------------------------------------------------------- |
+| `voice_minutes.used`   | `float` | Minutes consumed this month (from Redis period stats).                                          |
+| `voice_minutes.total`  | `float` | `used` + remaining voice minutes (`voice_seconds_quota` + `voice_seconds_prepaid`, in minutes). |
+| `whatsapp_leads.used`  | `float` | WhatsApp leads consumed this month (integer count stored as float).                             |
+| `whatsapp_leads.total` | `float` | `used` + remaining `whatsapp_leads_quota` balance.                                              |
+
+When the customer has no WhatsApp quota, `whatsapp_leads` is `{ "used": 0.0, "total": 0.0 }`.
 
 ---
 
