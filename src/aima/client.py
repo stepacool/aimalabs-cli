@@ -185,6 +185,9 @@ class AimaClient:
     def lead_status(self, lead_id: int) -> dict:
         return self._request("GET", f"/api/cli/leads/{lead_id}/status")
 
+    def get_usage(self) -> dict:
+        return self._request("GET", "/api/cli/usage")
+
     def get_whatsapp_config(self) -> dict:
         return self._request("GET", "/api/cli/whatsapp/config")
 
