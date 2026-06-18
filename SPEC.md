@@ -109,6 +109,18 @@ Each `[composite, client-side]` row is a CLI-only orchestration; everything else
 | `aima calls dispatch <lead_id>` | `POST /api/cli/leads/{lead_id}/dispatch` — places a real outbound call. **Confirm interactively unless `--yes`.** |
 | `aima calls status <lead_id> [--poll] [--poll-interval 20] [--poll-timeout 300]` | `GET /api/cli/leads/{lead_id}/status` once; with `--poll`, refetch every `--poll-interval` seconds until `latest_call.ended_at` is set or `--poll-timeout` elapses. |
 
+### Phone numbers
+
+| Command | Maps to |
+|---|---|
+| `aima phones list [--limit N]` | `GET /api/cli/phones` |
+| `aima phones available [--limit N]` | `GET /api/cli/phones/available` |
+| `aima phones rent <phone_number_id> [--yes]` | `POST /api/cli/phones/rent` — rents from platform inventory. **Confirm interactively unless `--yes`.** |
+| `aima phones release <assignment_id> [--yes]` | `DELETE /api/cli/phones/{assignment_id}` — returns number to available pool. **Confirm interactively unless `--yes`.** |
+
+- Use `phones available` to find a `phone_number_id`, then `phones rent <id>`. After rent, `phones list` shows the `assignment_id` needed for release.
+- Numbers must already exist in platform inventory (the CLI does not search or purchase from carriers).
+
 ### Composite onboarding
 
 `aima onboard` — interactive walkthrough that runs the canonical sequence end-to-end:
@@ -459,6 +471,96 @@ Fetch the latest call (if any) plus any extracted field values for a lead.
 - `latest_call` is `null` when no call has been placed.
 - Inside `latest_call`, every field except `call_id` may be `null`. `status` is a `CallStatus`; `hangup_cause` is a `HangupCause`.
 - The poll loop should terminate when `latest_call.ended_at` is set (any non-null ISO timestamp).
+
+---
+
+### `GET /api/cli/phones`
+
+List phone numbers rented by the authenticated customer.
+
+**Query params:** `skip` (default `0`), `limit` (default `100`, max `1000`).
+
+**Response: `200 OK` → `RentedPhoneNumber[]`:**
+
+```json
+[
+  {
+    "id": 42,
+    "phone_e164": "+15551234567",
+    "country_code": "1",
+    "status": "assigned",
+    "assignment_id": 7
+  }
+]
+```
+
+---
+
+### `GET /api/cli/phones/available`
+
+List phone numbers available to rent from platform inventory.
+
+**Query params:** `skip`, `limit` (same as above).
+
+**Response: `200 OK` → `PhoneNumber[]`:**
+
+```json
+[
+  {
+    "id": 42,
+    "phone_e164": "+15551234567",
+    "country_code": "1",
+    "status": "available"
+  }
+]
+```
+
+---
+
+### `POST /api/cli/phones/rent`
+
+Rent an available phone number. `customer_id` is taken from the API key; it is not accepted in the body. Server sets `assignment_type: "rent"` and `monthly_price_cents: 1000`.
+
+**Request body:**
+
+```json
+{ "phone_number_id": 42 }
+```
+
+**Response: `200 OK` → `RentPhoneResult`:**
+
+```json
+{
+  "assignment_id": 7,
+  "phone_number_id": 42,
+  "phone_e164": "+15551234567",
+  "status": "assigned",
+  "assignment_type": "rent",
+  "monthly_price_cents": 1000
+}
+```
+
+**Errors:** `404` if the phone number does not exist; `400` if it is not `available`.
+
+---
+
+### `DELETE /api/cli/phones/{assignment_id}`
+
+Release a rented phone number. Returns the number to `available` status.
+
+**Path param:** `assignment_id: int` (must belong to the customer; `404` otherwise).
+
+**Response: `200 OK`:**
+
+```json
+{
+  "assignment_id": 7,
+  "phone_e164": "+15551234567",
+  "status": "ended"
+}
+```
+
+**Errors:** `400` if the assignment is not `active`.
 
 ---
 

@@ -7,7 +7,7 @@ import os
 import typer
 
 from . import __version__
-from .commands import agents, calls, campaigns, config_cmd, leads, onboard, setup, voices, whatsapp
+from .commands import agents, calls, campaigns, config_cmd, leads, onboard, phones, setup, voices, whatsapp
 from .config import load_config
 from .context import AppState, stdout_is_tty
 from .errors import AimaError
@@ -71,6 +71,7 @@ app.add_typer(agents.app, name="agents")
 app.add_typer(campaigns.app, name="campaigns")
 app.add_typer(leads.app, name="leads")
 app.add_typer(calls.app, name="calls")
+app.add_typer(phones.app, name="phones")
 app.add_typer(whatsapp.app, name="whatsapp")
 
 

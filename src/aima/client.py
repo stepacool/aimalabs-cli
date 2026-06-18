@@ -209,3 +209,25 @@ class AimaClient:
 
     def delete_whatsapp(self, credentials_id: int) -> dict:
         return self._request("DELETE", f"/api/cli/whatsapp/{credentials_id}")
+
+    def list_phones(self, *, limit: int | None = None) -> list[dict]:
+        params: dict[str, Any] = {}
+        if limit is not None:
+            params["limit"] = limit
+        return self._request("GET", "/api/cli/phones", params=params) or []
+
+    def list_available_phones(self, *, limit: int | None = None) -> list[dict]:
+        params: dict[str, Any] = {}
+        if limit is not None:
+            params["limit"] = limit
+        return self._request("GET", "/api/cli/phones/available", params=params) or []
+
+    def rent_phone(self, phone_number_id: int) -> dict:
+        return self._request(
+            "POST",
+            "/api/cli/phones/rent",
+            json={"phone_number_id": phone_number_id},
+        )
+
+    def release_phone(self, assignment_id: int) -> dict:
+        return self._request("DELETE", f"/api/cli/phones/{assignment_id}")
