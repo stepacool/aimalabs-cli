@@ -126,6 +126,7 @@ aima campaigns list --json | jq '.[].campaign_id'
 | `aima leads upload-csv --campaign-id ID --file PATH ...` | Bulk-create leads from CSV (or stdin via `--file -`). |
 | `aima calls dispatch <lead_id>` | Place a **real** outbound call (confirms unless `--yes`). |
 | `aima calls status <lead_id> [--poll]` | Latest call status + extracted values; `--poll` until it ends. |
+| `aima usage view` | Current-month voice minutes and WhatsApp leads as `used / total`. |
 | `aima onboard` | Interactive end-to-end walkthrough. |
 
 ### Defining extraction fields
