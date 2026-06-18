@@ -30,7 +30,7 @@ uv tool install aimalabs-cli      # or: pipx install aimalabs-cli
 pip install aimalabs-cli
 ```
 
-**Run once without installing** (ephemeral — does _not_ add `aima` to your PATH).
+**Run once without installing** (ephemeral — does *not* add `aima` to your PATH).
 Because the package and command names differ, `uvx` needs `--from`:
 
 ```bash
@@ -45,7 +45,7 @@ Upgrade or remove an isolated install later with `uv tool upgrade aimalabs-cli`
 ```bash
 aima init                 # prompts for your API key, validates it, writes ~/.aima/config.json (0600)
 aima voices list          # browse available voices
-aima onboard              # guided: voice or WhatsApp (connect → campaign → test)
+aima onboard              # guided: voice or WhatsApp
 ```
 
 Or do it by hand:
@@ -78,12 +78,12 @@ Config lives at `~/.aima/config.json` (mode `0600`):
 
 Environment variables override the file:
 
-| Variable           | Effect                                       |
-| ------------------ | -------------------------------------------- |
-| `AIMA_API_KEY`     | Override `api_key`.                          |
-| `AIMA_BASE_URL`    | Override `base_url` (self-hosted / staging). |
-| `AIMA_CONFIG`      | Use an alternate config-file path.           |
-| `AIMA_OUTPUT=json` | Force machine-readable output.               |
+| Variable | Effect |
+|---|---|
+| `AIMA_API_KEY` | Override `api_key`. |
+| `AIMA_BASE_URL` | Override `base_url` (self-hosted / staging). |
+| `AIMA_CONFIG` | Use an alternate config-file path. |
+| `AIMA_OUTPUT=json` | Force machine-readable output. |
 
 Manage it directly:
 
@@ -109,27 +109,28 @@ aima campaigns list --json | jq '.[].campaign_id'
 
 ## Commands
 
-| Command                                                                                               | What it does                                                      |
-| ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| `aima init`                                                                                           | First-run wizard: prompt, validate against the API, write config. |
-| `aima status`                                                                                         | Show config and probe that the key still works.                   |
-| `aima config show \| set \| clear`                                                                    | Manage local config.                                              |
-| `aima voices list [--language] [--provider] [--voice-type] [--no-active]`                             | List voices (active by default).                                  |
-| `aima agents list [--limit N]`                                                                        | List agents, newest first.                                        |
-| `aima agents get <agent_id>`                                                                          | Show one agent, including its system prompt.                      |
-| `aima agents create --name N --company-name C [--language] [--system-prompt] [--voice-id]`            | Create a reusable agent.                                          |
-| `aima agents update <agent_id> [--name] [--company-name] [--language] [--system-prompt] [--voice-id]` | Update an agent (only the flags you pass).                        |
-| `aima campaigns list [--active\|--inactive] [--limit N]`                                              | List campaigns, newest first.                                     |
-| `aima campaigns create ...`                                                                           | Create a campaign + agent + extraction fields atomically.         |
-| `aima campaigns update <campaign_id> [--title] [--agent-id] [--extra-context] [--active\|--inactive]` | Retitle, reassign the agent, or edit the prompt.                  |
-| `aima leads add-test --campaign-id ID --lead NAME:E164`                                               | Add test leads (no dispatch).                                     |
-| `aima leads initiate <lead_id>`                                                                       | Send WhatsApp template to a lead (confirms unless `--yes`).       |
-| `aima leads upload-csv --campaign-id ID --file PATH ...`                                              | Bulk-create leads from CSV (or stdin via `--file -`).             |
-| `aima whatsapp connect embedded\|coexistence`                                                         | Browser connect flow for WhatsApp credentials.                    |
-| `aima whatsapp templates <credentials_id>`                                                            | List APPROVED message templates.                                  |
-| `aima calls dispatch <lead_id>`                                                                       | Place a **real** outbound call (confirms unless `--yes`).         |
-| `aima calls status <lead_id> [--poll]`                                                                | Lead status (call + conversation); `--poll` until terminal.       |
-| `aima onboard`                                                                                        | Interactive walkthrough (`voice` or `whatsapp`).                  |
+| Command | What it does |
+|---|---|
+| `aima init` | First-run wizard: prompt, validate against the API, write config. |
+| `aima status` | Show config and probe that the key still works. |
+| `aima config show \| set \| clear` | Manage local config. |
+| `aima voices list [--language] [--provider] [--voice-type] [--no-active]` | List voices (active by default). |
+| `aima agents list [--limit N]` | List agents, newest first. |
+| `aima agents get <agent_id>` | Show one agent, including its system prompt. |
+| `aima agents create --name N --company-name C [--language] [--system-prompt] [--voice-id]` | Create a reusable agent. |
+| `aima agents update <agent_id> [--name] [--company-name] [--language] [--system-prompt] [--voice-id]` | Update an agent (only the flags you pass). |
+| `aima campaigns list [--active\|--inactive] [--limit N]` | List campaigns, newest first. |
+| `aima campaigns create ...` | Create a campaign + agent + extraction fields atomically. |
+| `aima campaigns update <campaign_id> [--title] [--agent-id] [--extra-context] [--active\|--inactive]` | Retitle, reassign the agent, or edit the prompt. |
+| `aima leads add-test --campaign-id ID --lead NAME:E164` | Add test leads (no dispatch). |
+| `aima leads initiate <lead_id>` | Send WhatsApp template (confirms unless `--yes`). |
+| `aima leads upload-csv --campaign-id ID --file PATH ...` | Bulk-create leads from CSV (or stdin via `--file -`). |
+| `aima whatsapp connect embedded\|coexistence` | Browser connect for WhatsApp credentials. |
+| `aima whatsapp templates <credentials_id>` | List APPROVED message templates. |
+| `aima calls dispatch <lead_id>` | Place a **real** outbound call (confirms unless `--yes`). |
+| `aima calls status <lead_id> [--poll]` | Lead status (call + conversation); `--poll` until terminal. |
+| `aima usage view` | Current-month voice minutes and WhatsApp leads as `used / total`. |
+| `aima onboard` | Interactive walkthrough (`voice` or `whatsapp`). |
 
 ### Defining extraction fields
 
@@ -151,12 +152,12 @@ to read from disk. The whole request body can also be supplied with
 
 ## Exit codes
 
-| Code | Meaning                                                                                 |
-| ---- | --------------------------------------------------------------------------------------- |
-| `0`  | Success.                                                                                |
-| `1`  | User error — bad flags, validation, or a 4xx from the API (`detail` printed to stderr). |
-| `2`  | Server / network error — a 5xx or a transport failure.                                  |
-| `3`  | Missing or invalid config (no API key, unreadable file).                                |
+| Code | Meaning |
+|---|---|
+| `0` | Success. |
+| `1` | User error — bad flags, validation, or a 4xx from the API (`detail` printed to stderr). |
+| `2` | Server / network error — a 5xx or a transport failure. |
+| `3` | Missing or invalid config (no API key, unreadable file). |
 
 ## For AI agents
 

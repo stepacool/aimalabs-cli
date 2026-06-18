@@ -12,7 +12,7 @@ from .. import config as cfg
 from ..context import get_state
 from ..errors import UserError
 from ..output import info, render_table, success, warn
-from .calls import _poll, _render_status
+from .calls import call_poll_done, call_poll_progress, poll_lead_status, render_lead_status
 from .onboard_whatsapp import onboard_whatsapp
 from .setup import init as run_init
 from .voices import VOICE_COLUMNS
@@ -94,8 +94,17 @@ def _onboard_voice(ctx: typer.Context, state) -> None:
         client.dispatch(lead_id)
 
         info("Polling for up to 5 minutes…")
-        result = _poll(ctx, client, lead_id, interval=20, timeout=300)
-        _render_status(result)
+        state = get_state(ctx)
+        result = poll_lead_status(
+            client,
+            lead_id,
+            interval=20,
+            timeout=300,
+            is_done=call_poll_done,
+            progress=call_poll_progress,
+            json_mode=state.json_mode,
+        )
+        render_lead_status(result)
     finally:
         client.close()
 
