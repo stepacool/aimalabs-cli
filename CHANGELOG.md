@@ -6,6 +6,14 @@ All notable changes to `aimalabs-cli` are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-06-19
+
+### Added
+
+- `aima phones list|available|rent|release` — browse platform inventory, rent outbound PSTN
+  numbers, and release assignments.
+- `aima usage view` — current-month voice minutes and WhatsApp leads as `used / total`.
+
 ### Changed
 
 - Interactive prompts use [Questionary](https://questionary.readthedocs.io/) instead of Typer/Click
