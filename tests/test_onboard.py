@@ -1,8 +1,10 @@
 import json
+from collections import deque
 
 import pytest
 
 from aima.cli import app
+from aima.prompts import INBOUND_TEMPLATE
 
 _ACCOUNT = {
     "id": 5,
@@ -39,6 +41,32 @@ def _mock_whatsapp_onboard(httpx_mock, *, templates=None, cred_id=5):
         url="https://api.test/api/cli/campaigns",
         json={**_CAMPAIGN, "campaign_id": 9 if templates is not None else 11},
     )
+
+
+def _patch_onboard_prompts(monkeypatch, *, selects=(), confirms=(), texts=(), rows=()):
+    """Queue return values for Questionary wrappers used by onboard flows."""
+    select_q = deque(selects)
+    confirm_q = deque(confirms)
+    text_q = deque(texts)
+    row_q = deque(rows)
+
+    def fake_select(_message, _choices, *, default=None):
+        return select_q.popleft()
+
+    def fake_confirm(_message, *, default=False):
+        return confirm_q.popleft()
+
+    def fake_text(_message, *, default="", validate=None):
+        return text_q.popleft()
+
+    def fake_row(_message, _rows, *, label, value_key, extra_choices=()):
+        return row_q.popleft()
+
+    for module in ("aima.commands.onboard", "aima.commands.onboard_whatsapp"):
+        monkeypatch.setattr(f"{module}.ask_select", fake_select)
+        monkeypatch.setattr(f"{module}.ask_confirm", fake_confirm)
+        monkeypatch.setattr(f"{module}.ask_text", fake_text)
+        monkeypatch.setattr(f"{module}.ask_row", fake_row)
 
 
 def test_onboard_rejects_json_mode(configured, cli):
@@ -82,14 +110,15 @@ def test_onboard_whatsapp_outbound_happy_path(configured, runner, httpx_mock, mo
         },
     )
 
-    result = runner.invoke(
-        app,
-        ["--no-json", "onboard"],
-        input="\n".join(
-            ["whatsapp", "y", "5", "1", "Camp", "Co", "", "n", "Jane", "+15551234567", "y"]
-        )
-        + "\n",
+    _patch_onboard_prompts(
+        monkeypatch,
+        selects=["whatsapp", ("hello", "en")],
+        confirms=[True, False, True],
+        rows=[5],
+        texts=["Camp", "Co", "", "Jane", "+15551234567"],
     )
+
+    result = runner.invoke(app, ["--no-json", "onboard"])
     assert result.exit_code == 0, result.stdout + result.stderr
     body = json.loads(
         next(
@@ -103,13 +132,16 @@ def test_onboard_whatsapp_outbound_happy_path(configured, runner, httpx_mock, mo
 
 
 @pytest.mark.parametrize(
-    ("template_pick", "expect_inbound"),
-    [("0", True), ("y", True)],
+    ("flow", "expect_inbound"),
+    [
+        ("template_inbound", True),
+        ("connect_no_templates", True),
+    ],
 )
 def test_onboard_whatsapp_inbound(
-    configured, runner, httpx_mock, monkeypatch, template_pick, expect_inbound
+    configured, runner, httpx_mock, monkeypatch, flow, expect_inbound
 ):
-    if template_pick == "y":
+    if flow == "connect_no_templates":
         monkeypatch.setattr("aima.commands.whatsapp_connect.time.sleep", lambda _seconds: None)
         httpx_mock.add_response(url="https://api.test/api/cli/whatsapp", json=[])
         httpx_mock.add_response(
@@ -144,12 +176,23 @@ def test_onboard_whatsapp_inbound(
             url="https://api.test/api/cli/campaigns",
             json={**_CAMPAIGN, "campaign_id": 11},
         )
-        inputs = ["whatsapp", "embedded", "y", "Inbound Camp", "Co", "", "n"]
+        _patch_onboard_prompts(
+            monkeypatch,
+            selects=["whatsapp", "embedded"],
+            confirms=[True, False],
+            texts=["Inbound Camp", "Co", ""],
+        )
     else:
         _mock_whatsapp_onboard(httpx_mock, templates=[_TEMPLATE])
-        inputs = ["whatsapp", "y", "5", "0", "Inbound Camp", "Co", "", "n"]
+        _patch_onboard_prompts(
+            monkeypatch,
+            selects=["whatsapp", INBOUND_TEMPLATE],
+            confirms=[True, False],
+            rows=[5],
+            texts=["Inbound Camp", "Co", ""],
+        )
 
-    result = runner.invoke(app, ["--no-json", "onboard"], input="\n".join(inputs) + "\n")
+    result = runner.invoke(app, ["--no-json", "onboard"])
     assert result.exit_code == 0, result.stdout + result.stderr
 
     body = json.loads(
@@ -164,7 +207,7 @@ def test_onboard_whatsapp_inbound(
     assert not [r for r in httpx_mock.get_requests() if r.url.path.endswith("/initiate")]
 
 
-def test_onboard_whatsapp_decline_inbound_offers_exit(configured, runner, httpx_mock):
+def test_onboard_whatsapp_decline_inbound_offers_exit(configured, runner, httpx_mock, monkeypatch):
     httpx_mock.add_response(
         url="https://api.test/api/cli/whatsapp",
         json=[{**_ACCOUNT, "id": 2, "display_phone_number": "+1"}],
@@ -175,10 +218,14 @@ def test_onboard_whatsapp_decline_inbound_offers_exit(configured, runner, httpx_
         json={"valid": True},
     )
     httpx_mock.add_response(url="https://api.test/api/cli/whatsapp/2/templates", json=[])
-    result = runner.invoke(
-        app,
-        ["--no-json", "onboard"],
-        input="\n".join(["whatsapp", "y", "2", "n"]) + "\n",
+
+    _patch_onboard_prompts(
+        monkeypatch,
+        selects=["whatsapp"],
+        confirms=[True, False],
+        rows=[2],
     )
+
+    result = runner.invoke(app, ["--no-json", "onboard"])
     assert result.exit_code != 0 or "Meta Business Manager" in result.stdout + result.stderr
     assert not [r for r in httpx_mock.get_requests() if r.url.path == "/api/cli/campaigns"]

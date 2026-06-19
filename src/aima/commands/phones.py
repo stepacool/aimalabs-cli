@@ -6,6 +6,7 @@ import typer
 
 from ..context import get_state
 from ..output import emit_json, render_keyvalue, render_table, success
+from ..prompts import ask_confirm
 
 app = typer.Typer(help="Rent and manage outbound phone numbers.", no_args_is_help=True)
 
@@ -84,7 +85,7 @@ def rent(
 
     if not yes and not state.json_mode:
         prompt = f"Rent phone number ID {phone_number_id}?"
-        if not typer.confirm(prompt):
+        if not ask_confirm(prompt):
             raise typer.Exit(code=0)
 
     with state.client() as client:
@@ -116,7 +117,7 @@ def release(
 
     if not yes and not state.json_mode:
         prompt = f"Release phone assignment ID {assignment_id}?"
-        if not typer.confirm(prompt):
+        if not ask_confirm(prompt):
             raise typer.Exit(code=0)
 
     with state.client() as client:

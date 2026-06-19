@@ -7,11 +7,13 @@ gated behind an explicit prompt. Every other step announces one line, then runs.
 from __future__ import annotations
 
 import typer
+from questionary import Choice
 
 from .. import config as cfg
 from ..context import get_state
 from ..errors import UserError
 from ..output import info, render_table, success, warn
+from ..prompts import ask_confirm, ask_row, ask_select, ask_text
 from .calls import call_poll_done, call_poll_progress, poll_lead_status, render_lead_status
 from .onboard_whatsapp import onboard_whatsapp
 from .setup import init as run_init
@@ -29,7 +31,14 @@ def onboard(ctx: typer.Context) -> None:
         run_init(ctx)
         state = get_state(ctx)
 
-    channel = typer.prompt("Channel (voice/whatsapp)", default="voice").strip().lower()
+    channel = ask_select(
+        "Channel",
+        [
+            Choice("Voice", value="voice"),
+            Choice("WhatsApp", value="whatsapp"),
+        ],
+        default="voice",
+    )
     if channel == "whatsapp":
         client = state.client()
         try:
@@ -44,19 +53,31 @@ def onboard(ctx: typer.Context) -> None:
     _onboard_voice(ctx, state)
 
 
+def _voice_label(voice: dict) -> str:
+    voice_id = voice.get("id")
+    title = voice.get("title") or "Untitled"
+    provider = voice.get("provider") or "unknown"
+    return f"{voice_id} — {title} ({provider})"
+
+
 def _onboard_voice(ctx: typer.Context, state) -> None:
     client = state.client()
     try:
         info("Fetching voices…")
         voices = client.list_voices(is_active=True)
+        if not voices:
+            raise UserError("No active voices available.")
         render_table(voices, VOICE_COLUMNS, title=f"Voices ({len(voices)})")
-        voice_id = typer.prompt("Pick a voice id", type=int)
-
-        title = typer.prompt("Campaign title")
-        company = typer.prompt("Company name")
-        sys_prompt = typer.prompt(
-            "System prompt (blank for default)", default="", show_default=False
+        voice_id = ask_row(
+            "Pick a voice",
+            voices,
+            label=_voice_label,
+            value_key="id",
         )
+
+        title = ask_text("Campaign title")
+        company = ask_text("Company name")
+        sys_prompt = ask_text("System prompt (blank for default)", default="")
         fields = _collect_fields()
 
         body = {
@@ -75,8 +96,8 @@ def _onboard_voice(ctx: typer.Context, state) -> None:
         campaign_id = created.get("campaign_id")
         success(f"Campaign {campaign_id} created.")
 
-        lead_name = typer.prompt("Test lead name")
-        lead_phone = typer.prompt("Test lead phone (E.164, e.g. +15551234567)")
+        lead_name = ask_text("Test lead name")
+        lead_phone = ask_text("Test lead phone (E.164, e.g. +15551234567)")
         info("Adding test lead…")
         leads = client.add_test_leads(
             campaign_id, [{"name": lead_name, "phone_number": lead_phone}]
@@ -87,7 +108,7 @@ def _onboard_voice(ctx: typer.Context, state) -> None:
         success(f"Lead {lead_id} added.")
 
         warn(f"This will place a REAL call to {lead_name} at {lead_phone}.")
-        if not typer.confirm("Dispatch now?", default=False):
+        if not ask_confirm("Dispatch now?", default=False):
             info(f"Skipped. Dispatch later with: aima calls dispatch {lead_id}")
             return
         info("Dispatching…")
@@ -112,16 +133,14 @@ def _onboard_voice(ctx: typer.Context, state) -> None:
 def _collect_fields() -> list[dict]:
     """Optionally collect extraction fields, one per prompt loop."""
     fields: list[dict] = []
-    if not typer.confirm("Add extraction fields?", default=False):
+    if not ask_confirm("Add extraction fields?", default=False):
         return fields
     order = 1
     while True:
-        ftitle = typer.prompt(
-            "  field title (blank to stop)", default="", show_default=False
-        )
+        ftitle = ask_text("  field title (blank to stop)", default="")
         if not ftitle.strip():
             break
-        desc = typer.prompt("  description")
+        desc = ask_text("  description")
         fields.append(
             {"title": ftitle.strip(), "description": desc, "type": "string", "order": order}
         )

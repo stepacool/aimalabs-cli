@@ -9,6 +9,7 @@ from ..client import AimaClient
 from ..context import get_state, reload_state
 from ..errors import AimaError
 from ..output import emit_json, info, render_keyvalue, success, warn
+from ..prompts import ask_confirm, ask_text
 
 
 def init(ctx: typer.Context) -> None:
@@ -19,7 +20,7 @@ def init(ctx: typer.Context) -> None:
 
     if path.exists() and not state.json_mode:
         warn(f"Config already exists at {path}.")
-        if not typer.confirm("Overwrite it?", default=False):
+        if not ask_confirm("Overwrite it?", default=False):
             raise typer.Exit(code=0)
 
     if state.json_mode:
@@ -33,16 +34,15 @@ def init(ctx: typer.Context) -> None:
             )
     else:
         info("Setting up AIMA Labs CLI. Get your API key from the dashboard.")
-        default_key = conf.api_key or None
-        api_key = typer.prompt(
+        default_key = conf.api_key or ""
+        api_key = ask_text(
             "API key (api_...)",
             default=default_key,
-            hide_input=False,
-            show_default=bool(default_key),
-        ).strip()
-        base_url = typer.prompt(
-            "Base URL", default=conf.base_url or cfg.DEFAULT_BASE_URL
-        ).strip()
+        )
+        base_url = ask_text(
+            "Base URL",
+            default=conf.base_url or cfg.DEFAULT_BASE_URL,
+        )
 
     # Validate by hitting GET /voices before persisting.
     probe_conf = cfg.Config(base_url=base_url.rstrip("/"), api_key=api_key, source_path=path)
